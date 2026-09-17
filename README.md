@@ -299,7 +299,7 @@ FLUSH PRIVILEGES;
 ## Установка
 
 ```bash
-git clone <URL_РЕПОЗИТОРИЯ>
+git clone https://github.com/ShestakovDaniil/auction.git
 cd auction
 python3 -m venv .venv
 source .venv/bin/activate
