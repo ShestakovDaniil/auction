@@ -1,149 +1,286 @@
 # Auction Lab
 
-Система учета и проведения аукционов с HTTP API и веб-интерфейсом.
+## Возможности
 
-Приложение позволяет создавать аукционы и лоты, регистрировать ставки участников, определять результат торгов и учитывать совершенные продажи. Проект разработан в рамках лабораторной работы по организации сквозного проекта и Git-процесса.
+- регистрация покупателей и продавцов;
+- вход по логину или email;
+- личный кабинет с данными пользователя, его лотами и ставками;
+- создание лотов продавцом;
+- запуск аукциона для собственного лота;
+- просмотр активных, ожидающих и завершённых аукционов;
+- поиск и фильтрация каталога;
+- проведение ставок покупателями;
+- контроль минимальной следующей ставки;
+- блокировка ставки продавца на собственный лот;
+- завершение аукциона владельцем или администратором;
+- вычисление победителя по максимальной ставке;
+- JSON API и Swagger UI;
+- проверка подключения к MariaDB/MySQL через `/health` и `scripts/check_db.py`.
 
 ## Технологии
 
 - Python 3.11+
 - FastAPI
-- SQLAlchemy
+- SQLAlchemy 2
 - MariaDB / MySQL
 - PyMySQL
-- Pydantic
+- Pydantic v2
 - Jinja2
-- Pytest
 - Uvicorn
-- Git
 
-## Основные возможности
+## Модель данных
 
-Система поддерживает:
+В системе используются четыре таблицы:
 
-- учет пользователей;
-- создание аукционов;
-- создание и управление лотами;
-- регистрацию ставок;
-- проверку правил проведения торгов;
-- определение победителя лота;
-- фиксацию продаж;
-- просмотр данных через веб-интерфейс;
-- HTTP API;
-- автоматическую документацию API через Swagger;
-- проверку состояния приложения и подключения к базе данных.
+- `users` – пользователи, их учетные данные и роли;
+- `lots` – лоты продавцов;
+- `auctions` – аукционы, связанные с лотами;
+- `sales` – журнал ставок. Историческое имя таблицы сохранено для совместимости, в коде сущность называется `Bid`.
 
-## Предметная модель
+Подробная схема приведена в [`docs/ERD.md`](docs/ERD.md).
 
-Основные сущности системы:
+## Роли
 
-### User
+### Покупатель (`buyer`)
 
-Пользователь системы. Может участвовать в аукционах в роли продавца или покупателя.
+Может просматривать аукционы после авторизации, делать ставки, видеть свои ставки и результаты участия.
 
-### Auction
+### Продавец (`seller`)
 
-Аукцион, определяющий период проведения торгов.
+Может создавать собственные лоты, запускать по ним аукционы и завершать свои аукционы.
 
-### Lot
+### Администратор (`admin`)
 
-Лот, выставленный продавцом на аукцион.
+Служебная роль с расширенными полномочиями. Администратор может завершать аукционы и получать сводный отчёт API. Публичная регистрация администратора запрещена.
 
-Для лота задаются основные параметры, включая стартовую стоимость и минимальный шаг ставки.
+## Безопасность
 
-### Bid
+В приложении реализованы следующие меры:
 
-Ставка покупателя на определенный лот.
+- все страницы каталога, аукционов и личного кабинета требуют авторизации;
+- все API-эндпоинты, кроме регистрации пользователя, требуют действующую auth-cookie;
+- JWT подписывается HMAC-SHA256 и хранится в `HttpOnly` cookie;
+- cookie использует `SameSite=Strict`; для production требуется `COOKIE_SECURE=true`;
+- `APP_SECRET_KEY` обязателен и должен содержать не менее 32 символов;
+- формы изменения данных защищены CSRF-токеном;
+- изменяющие API-запросы требуют заголовок `X-CSRF-Token`;
+- доступ к объектам проверяется на сервере, а не только скрытием элементов интерфейса;
+- чужие черновики лотов не раскрываются;
+- закрыть аукцион может только его владелец или администратор;
+- история ставок лота доступна владельцу, администратору либо участнику этого лота;
+- регистрация роли `admin` через публичный интерфейс и API запрещена;
+- пароль хранится как PBKDF2-SHA256 с уникальной солью;
+- старые SHA-256 хэши поддерживаются только для миграции и автоматически заменяются после успешного входа;
+- форма входа ограничивает частые неудачные попытки;
+- переход после входа проверяется и не допускает внешний redirect;
+- настроен `TrustedHostMiddleware`;
+- ответы содержат `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` и `Permissions-Policy`;
+- при `COOKIE_SECURE=true` добавляется HSTS;
+- ORM SQLAlchemy используется без конкатенации пользовательских значений в SQL.
 
-Каждая ставка связана с пользователем и лотом.
-
-### Sale
-
-Результат успешно завершенных торгов. Содержит информацию о проданном лоте, покупателе, продавце и итоговой стоимости.
-
-Подробное описание структуры данных находится в [`docs/ERD.md`](docs/ERD.md).
-
-## Бизнес-правила
-
-В приложении реализованы основные ограничения предметной области:
-
-- ставка может быть сделана только во время проведения аукциона;
-- продавец не может сделать ставку на собственный лот;
-- первая ставка не может быть ниже стартовой цены;
-- каждая следующая ставка должна учитывать минимальный шаг;
-- после завершения торгов победителем становится участник с максимальной ставкой;
-- при отсутствии ставок лот завершается без продажи;
-- для одного лота не может быть создано несколько продаж.
+Для production приложение должно работать за HTTPS reverse proxy. В `.env` необходимо установить `APP_ENV=production`, `COOKIE_SECURE=true`, корректный `ALLOWED_HOSTS` и уникальный секрет.
 
 ## Структура проекта
 
 ```text
 .
 ├── app
+│   ├── __init__.py
+│   ├── access.py
+│   ├── auth.py
 │   ├── config.py
 │   ├── db.py
 │   ├── domain.py
-│   ├── __init__.py
+│   ├── http.py
 │   ├── main.py
 │   ├── models.py
 │   ├── schemas.py
+│   ├── security.py
 │   ├── services.py
 │   ├── routers
-│   │   ├── auctions.py
 │   │   ├── __init__.py
-│   │   ├── lots.py
-│   │   ├── sales.py
-│   │   └── users.py
+│   │   ├── health.py
+│   │   ├── index.py
+│   │   ├── register.py
+│   │   ├── login.py
+│   │   ├── logout.py
+│   │   ├── dashboard.py
+│   │   ├── lot_new.py
+│   │   ├── lot_create.py
+│   │   ├── auction_new.py
+│   │   ├── auction_create.py
+│   │   ├── auction_detail.py
+│   │   ├── auction_bid.py
+│   │   ├── auction_close.py
+│   │   ├── api_user_create.py
+│   │   ├── api_user_me.py
+│   │   ├── api_lot_create.py
+│   │   ├── api_lot_get.py
+│   │   ├── api_lot_bids.py
+│   │   ├── api_auction_list.py
+│   │   ├── api_auction_get.py
+│   │   ├── api_auction_create.py
+│   │   ├── api_auction_close.py
+│   │   ├── api_bid_create.py
+│   │   └── api_report_summary.py
 │   ├── static
 │   │   └── styles.css
 │   └── templates
+│       ├── auction_detail.html
+│       ├── auction_form.html
 │       ├── base.html
-│       └── index.html
+│       ├── dashboard.html
+│       ├── error.html
+│       ├── index.html
+│       ├── login.html
+│       ├── lot_form.html
+│       └── register.html
 ├── docs
 │   ├── API.md
-│   ├── ERD.md
-│   ├── GIT_PROCESS.md
-│   └── TECHNICAL_SPECIFICATION.md
+│   └── ERD.md
 ├── scripts
+│   ├── check_db.py
 │   └── seed.py
-├── tests
-│   ├── conftest.py
-│   └── test_domain.py
-├── .env.example
 ├── .gitignore
 ├── README.md
+├── TZ_ANALYSIS.md
 └── requirements.txt
 ```
 
-### Назначение основных модулей
+## Назначение всех файлов
 
-`app/main.py` — точка входа FastAPI-приложения и подключение маршрутов.
+### Корень проекта
 
-`app/config.py` — загрузка конфигурации из переменных окружения.
+- `.gitignore` – исключает локальный `.env`, виртуальные окружения, кэш Python и файлы IDE из Git.
+- `README.md` – инструкция по установке, конфигурации, запуску, архитектуре и HTTP-маршрутам.
+- `TZ_ANALYSIS.md` – сверка фактической реализации с исходным ТЗ и рекомендуемые правки формулировок.
+- `requirements.txt` – зависимости Python, необходимые для запуска приложения.
 
-`app/db.py` — настройка подключения к MariaDB и работа с SQLAlchemy.
+### `app/`
 
-`app/models.py` — ORM-модели базы данных.
+- `app/__init__.py` – обозначает каталог `app` как Python-пакет.
+- `app/main.py` – создаёт FastAPI-приложение, подключает роутеры, статику, middleware безопасности и обработчики ошибок.
+- `app/config.py` – загружает настройки из `.env`, проверяет тип СУБД, секрет приложения и production-параметры.
+- `app/db.py` – создаёт SQLAlchemy engine и сессии MariaDB/MySQL.
+- `app/models.py` – содержит ORM-модели `User`, `Lot`, `Auction`, `Bid`, enum-статусы и ограничения таблиц.
+- `app/schemas.py` – Pydantic-схемы входных и выходных данных API.
+- `app/auth.py` – хэширование и проверка паролей, выпуск и проверка JWT, получение текущего пользователя и проверка ролей.
+- `app/access.py` – объектная авторизация: проверка видимости и владения лотами/аукционами и доступа к истории ставок.
+- `app/security.py` – CSRF-защита, безопасный локальный redirect и ограничение частых попыток входа.
+- `app/http.py` – общие Jinja-шаблоны, фильтры форматирования, контекст страниц и redirect с сообщением.
+- `app/services.py` – бизнес-операции: создание пользователей/лотов/аукционов, ставки, завершение и синхронизация статусов.
+- `app/domain.py` – изолированные правила предметной области для вычисления минимальной ставки и проверки временного окна.
 
-`app/schemas.py` — Pydantic-схемы входных и выходных данных API.
+### `app/routers/`
 
-`app/domain.py` — правила предметной области.
+- `app/routers/__init__.py` – единый список роутеров, подключаемых в `app/main.py`.
+- `app/routers/health.py` – `GET /health`.
+- `app/routers/index.py` – `GET /`, каталог аукционов.
+- `app/routers/register.py` – `GET /register`, `POST /register`.
+- `app/routers/login.py` – `GET /login`, `POST /login`.
+- `app/routers/logout.py` – `POST /logout`.
+- `app/routers/dashboard.py` – `GET /dashboard`.
+- `app/routers/lot_new.py` – `GET /lots/new`.
+- `app/routers/lot_create.py` – `POST /lots/create`.
+- `app/routers/auction_new.py` – `GET /auctions/new`.
+- `app/routers/auction_create.py` – `POST /auctions/create`.
+- `app/routers/auction_detail.py` – `GET /auctions/{auction_id}`.
+- `app/routers/auction_bid.py` – `POST /auctions/{auction_id}/bid`.
+- `app/routers/auction_close.py` – `POST /auctions/{auction_id}/close`.
+- `app/routers/api_user_create.py` – `POST /api/users`.
+- `app/routers/api_user_me.py` – `GET /api/users/me`.
+- `app/routers/api_lot_create.py` – `POST /api/lots`.
+- `app/routers/api_lot_get.py` – `GET /api/lots/{lot_id}`.
+- `app/routers/api_lot_bids.py` – `GET /api/lots/{lot_id}/bids`.
+- `app/routers/api_auction_list.py` – `GET /api/auctions`.
+- `app/routers/api_auction_get.py` – `GET /api/auctions/{auction_id}`.
+- `app/routers/api_auction_create.py` – `POST /api/auctions`.
+- `app/routers/api_auction_close.py` – `POST /api/auctions/{auction_id}/close`.
+- `app/routers/api_bid_create.py` – `POST /api/auctions/{auction_id}/bids`.
+- `app/routers/api_report_summary.py` – `GET /api/reports/summary`.
 
-`app/services.py` — сервисный слой приложения.
+### `app/templates/`
 
-`app/routers/` — HTTP API.
+- `base.html` – базовая HTML-разметка, навигация, сообщения и footer.
+- `index.html` – каталог аукционов с фильтрами, поиском и пагинацией.
+- `login.html` – форма входа.
+- `register.html` – форма регистрации и выбора роли.
+- `dashboard.html` – личный кабинет покупателя/продавца.
+- `lot_form.html` – создание лота.
+- `auction_form.html` – запуск аукциона для собственного лота.
+- `auction_detail.html` – карточка аукциона, история ставок, ставка и управление завершением.
+- `error.html` – отображение HTML-ошибок приложения.
 
-`app/templates/` и `app/static/` — веб-интерфейс приложения.
+### `app/static/`
 
-`tests/` — автоматические тесты бизнес-правил.
+- `styles.css` – стили всего веб-интерфейса.
 
-`scripts/seed.py` — заполнение базы демонстрационными данными.
+### `docs/`
 
-## Подготовка базы данных
+- `docs/API.md` – компактная спецификация HTTP API и требований авторизации/CSRF.
+- `docs/ERD.md` – ER-диаграмма и описание связей таблиц.
 
-Для работы приложения требуется MariaDB или MySQL.
+### `scripts/`
 
-Пример создания базы данных и отдельного пользователя:
+- `scripts/check_db.py` – проверяет соединение с MariaDB/MySQL и выводит версию сервера.
+
+## HTTP-маршруты
+
+### Веб-интерфейс
+
+| Метод | URL | Доступ | Назначение |
+|---|---|---|---|
+| `GET` | `/` | авторизованный пользователь | Каталог аукционов, поиск, фильтры и пагинация |
+| `GET` | `/register` | публичный | Страница регистрации |
+| `POST` | `/register` | публичный | Создание покупателя или продавца |
+| `GET` | `/login` | публичный | Страница входа |
+| `POST` | `/login` | публичный | Аутентификация и установка auth-cookie |
+| `POST` | `/logout` | авторизованный | Завершение браузерной сессии |
+| `GET` | `/dashboard` | авторизованный | Личный кабинет |
+| `GET` | `/lots/new` | продавец / admin | Форма нового лота |
+| `POST` | `/lots/create` | продавец / admin | Создание лота |
+| `GET` | `/auctions/new` | продавец / admin | Форма запуска аукциона |
+| `POST` | `/auctions/create` | владелец лота / admin | Создание аукциона |
+| `GET` | `/auctions/{auction_id}` | авторизованный | Просмотр конкретного аукциона |
+| `POST` | `/auctions/{auction_id}/bid` | покупатель / admin | Создание ставки |
+| `POST` | `/auctions/{auction_id}/close` | владелец / admin | Завершение аукциона |
+| `GET` | `/health` | публичный | Проверка доступности приложения и БД |
+
+### JSON API
+
+| Метод | URL | Доступ | Назначение |
+|---|---|---|---|
+| `POST` | `/api/users` | публичный | Регистрация покупателя или продавца |
+| `GET` | `/api/users/me` | авторизованный | Данные текущего пользователя |
+| `POST` | `/api/lots` | продавец / admin | Создание лота |
+| `GET` | `/api/lots/{lot_id}` | авторизованный, с проверкой доступа | Получение лота |
+| `GET` | `/api/lots/{lot_id}/bids` | владелец / admin / участник | История ставок лота |
+| `GET` | `/api/auctions` | авторизованный | Список аукционов |
+| `GET` | `/api/auctions/{auction_id}` | авторизованный | Получение аукциона |
+| `POST` | `/api/auctions` | владелец лота / admin | Создание аукциона |
+| `POST` | `/api/auctions/{auction_id}/close` | владелец / admin | Завершение аукциона |
+| `POST` | `/api/auctions/{auction_id}/bids` | покупатель / admin | Создание ставки |
+| `GET` | `/api/reports/summary` | admin | Сводные счётчики пользователей, лотов, аукционов и ставок |
+
+Служебные маршруты FastAPI: `/docs`, `/redoc`, `/openapi.json`.
+
+## Бизнес-правила
+
+- лот создаётся в статусе `draft`;
+- создавать лоты может продавец или администратор;
+- аукцион создаётся только для собственного лота, кроме операций администратора;
+- одновременно у лота не может быть двух активных/ожидающих аукционов;
+- окончание аукциона должно быть позже начала и позже текущего времени;
+- первая ставка может быть равна стартовой цене;
+- каждая следующая ставка должна быть не ниже текущей цены плюс `MIN_BID_INCREMENT`;
+- продавец не может делать ставку на собственный лот;
+- при одновременных ставках строка аукциона блокируется через `SELECT ... FOR UPDATE`;
+- завершённый аукцион больше не принимает ставки;
+- победителем считается максимальная ставка; при равенстве учитывается более ранняя ставка.
+
+## Подготовка MariaDB / MySQL
+
+Пример:
 
 ```sql
 CREATE DATABASE auction_lab
@@ -159,52 +296,26 @@ GRANT ALL PRIVILEGES ON auction_lab.*
 FLUSH PRIVILEGES;
 ```
 
-Название базы данных, имя пользователя и пароль можно изменить на свои.
-
 ## Установка
-
-Клонировать репозиторий:
 
 ```bash
 git clone <URL_РЕПОЗИТОРИЯ>
-cd auction_lab_project
-```
-
-Создать виртуальное окружение:
-
-```bash
+cd auction
 python3 -m venv .venv
-```
-
-Активировать его:
-
-Linux/macOS:
-
-```bash
 source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Windows:
+Windows PowerShell:
 
 ```powershell
 .venv\Scripts\activate
-```
-
-Установить зависимости:
-
-```bash
 pip install -r requirements.txt
 ```
 
 ## Конфигурация
 
-Создать локальный файл `.env` на основе примера:
-
-```bash
-cp .env.example .env
-```
-
-Пример конфигурации:
+Создайте локальный `.env` и укажите параметры окружения:
 
 ```env
 APP_NAME=Auction Lab
@@ -213,177 +324,33 @@ APP_HOST=127.0.0.1
 APP_PORT=8000
 
 DATABASE_URL=mysql+pymysql://auction_app:change_me@127.0.0.1:3306/auction_lab?charset=utf8mb4
+APP_SECRET_KEY=replace-with-a-unique-random-secret-at-least-32-characters
 
 AUTO_CREATE_TABLES=true
+ACCESS_TOKEN_EXPIRE_MINUTES=480
+COOKIE_SECURE=false
+MIN_BID_INCREMENT=1.00
+CATALOG_PAGE_SIZE=9
+ALLOWED_HOSTS=127.0.0.1,localhost
 ```
 
-Файл `.env` содержит локальные параметры подключения и не должен попадать в Git.
+## Проверка подключения к БД
 
-В репозитории хранится только `.env.example`.
+```bash
+python scripts/check_db.py
+```
+
+При успешном подключении будет выведена версия MariaDB/MySQL.
 
 ## Запуск
-
-Запустить приложение:
 
 ```bash
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-После запуска доступны:
+После запуска:
 
-- веб-интерфейс: `http://127.0.0.1:8000/`
+- приложение: `http://127.0.0.1:8000/`
 - Swagger UI: `http://127.0.0.1:8000/docs`
-- OpenAPI schema: `http://127.0.0.1:8000/openapi.json`
-- проверка состояния: `http://127.0.0.1:8000/health`
-
-## Демонстрационные данные
-
-Для заполнения базы тестовыми данными:
-
-```bash
-python scripts/seed.py
-```
-
-Скрипт создает набор пользователей, аукционов и лотов, достаточный для проверки основной функциональности приложения.
-
-## Проверка проекта
-
-Перед отправкой изменений необходимо проверить синтаксис Python-файлов:
-
-```bash
-python -m compileall app scripts tests
-```
-
-После этого запустить тесты:
-
-```bash
-pytest -q
-```
-
-Приложение также необходимо запустить локально и проверить основные адреса:
-
-```text
-/
- /docs
- /health
-```
-
-## Git-процесс
-
-В проекте используется схема разработки с ветками `main`, `develop` и отдельными feature-ветками.
-
-### `main`
-
-Стабильная ветка проекта.
-
-В нее попадает только проверенная версия из `develop`. Прямые коммиты в `main` не используются.
-
-Готовые версии отмечаются Git-тегами:
-
-```text
-v0.1.0
-v0.2.0
-...
-```
-
-### `develop`
-
-Основная интеграционная ветка разработки.
-
-Все завершенные задачи сначала сливаются в `develop`. После проверки общей версии `develop` сливается в `main`.
-
-### `feature/*`
-
-Для каждой задачи создается отдельная ветка от актуального состояния `develop`.
-
-Например:
-
-```text
-feature/database
-feature/api
-feature/web-ui
-```
-
-Типовой процесс:
-
-```bash
-git switch develop
-git pull origin develop
-
-git switch -c feature/example
-```
-
-После завершения работы:
-
-```bash
-git push -u origin feature/example
-```
-
-Затем создается Merge Request / Pull Request:
-
-```text
-feature/example → develop
-```
-
-После проверки другим участником команды изменения сливаются в `develop`.
-
-## Правила внесения изменений
-
-Перед созданием Merge Request разработчик должен:
-
-1. убедиться, что ветка создана от актуального `develop`;
-2. проверить состав изменений через `git status`;
-3. не добавлять `.env`, виртуальное окружение, `__pycache__` и другие локальные файлы;
-4. выполнить:
-
-```bash
-python -m compileall app scripts tests
-pytest -q
-```
-
-5. проверить запуск приложения;
-6. отправить feature-ветку в удаленный репозиторий;
-7. создать Merge Request в `develop`.
-
-Не допускаются:
-
-- прямые изменения в `main`;
-- `git push --force` в `main` и `develop`;
-- хранение паролей и других секретов в репозитории;
-- добавление `__pycache__`, `.pyc`, `.env` и виртуального окружения;
-- слияние изменений без предварительной проверки.
-
-Подробный регламент находится в [`docs/GIT_PROCESS.md`](docs/GIT_PROCESS.md).
-
-## Релиз
-
-После интеграции всех задач и проверки `develop` создается Merge Request:
-
-```text
-develop → main
-```
-
-После слияния релиз отмечается тегом:
-
-```bash
-git switch main
-git pull origin main
-
-git tag -a v0.1.0 -m "Auction Lab v0.1.0"
-git push origin v0.1.0
-```
-
-Первая версия проекта:
-
-```text
-v0.1.0
-```
-
-## Документация
-
-Дополнительные материалы проекта:
-
-- [`docs/API.md`](docs/API.md) — описание HTTP API;
-- [`docs/ERD.md`](docs/ERD.md) — схема сущностей и связей;
-- [`docs/TECHNICAL_SPECIFICATION.md`](docs/TECHNICAL_SPECIFICATION.md) — техническое задание;
-- [`docs/GIT_PROCESS.md`](docs/GIT_PROCESS.md) — регламент работы с Git.
+- OpenAPI: `http://127.0.0.1:8000/openapi.json`
+- health-check: `http://127.0.0.1:8000/health`
