@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Auction Lab — панель{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>Панель управления</h2>
+    <p>Все базовые сценарии лабораторной можно показать через эту страницу либо через HTTP API.</p>
+  </div>
+  <div class="badge">v0.1.0</div>
+</section>
+
+<section class="grid forms-grid">
+  <article class="card">
+    <h3>1. Новый пользователь</h3>
+    <form method="post" action="/ui/users">
+      <label>Имя<input name="name" required minlength="2"></label>
+      <label>Email<input type="email" name="email" required></label>
+      <label>Роль
+        <select name="role">
+          {% for role in roles %}<option value="{{ role }}">{{ role }}</option>{% endfor %}
+        </select>
+      </label>
+      <button>Создать</button>
+    </form>
+  </article>
+
+  <article class="card">
+    <h3>2. Новый аукцион</h3>
+    <form method="post" action="/ui/auctions">
+      <label>Название<input name="title" required></label>
+      <label>Описание<textarea name="description"></textarea></label>
+      <label>Начало<input type="datetime-local" name="starts_at" required></label>
+      <label>Окончание<input type="datetime-local" name="ends_at" required></label>
+      <label>Организатор
+        <select name="organizer_id" required>
+          {% for user in users %}<option value="{{ user.id }}">#{{ user.id }} {{ user.name }} ({{ user.role.value }})</option>{% endfor %}
+        </select>
+      </label>
+      <button>Создать</button>
+    </form>
+  </article>
+
+  <article class="card">
+    <h3>3. Новый лот</h3>
+    <form method="post" action="/ui/lots">
+      <label>Аукцион
+        <select name="auction_id" required>
+          {% for auction in auctions %}<option value="{{ auction.id }}">#{{ auction.id }} {{ auction.title }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Продавец
+        <select name="seller_id" required>
+          {% for user in users %}<option value="{{ user.id }}">#{{ user.id }} {{ user.name }} ({{ user.role.value }})</option>{% endfor %}
+        </select>
+      </label>
+      <label>Название<input name="title" required></label>
+      <label>Описание<textarea name="description"></textarea></label>
+      <label>Стартовая цена<input type="number" min="0.01" step="0.01" name="start_price" required></label>
+      <label>Мин. шаг<input type="number" min="0.01" step="0.01" name="min_increment" value="10.00" required></label>
+      <button>Создать</button>
+    </form>
+  </article>
+
+  <article class="card">
+    <h3>4. Сделать ставку</h3>
+    <form method="post" action="/ui/bids">
+      <label>Лот
+        <select name="lot_id" required>
+          {% for row in lot_rows %}<option value="{{ row.lot.id }}">#{{ row.lot.id }} {{ row.lot.title }} — {{ '%.2f'|format(row.current_price) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Покупатель
+        <select name="buyer_id" required>
+          {% for user in users %}<option value="{{ user.id }}">#{{ user.id }} {{ user.name }} ({{ user.role.value }})</option>{% endfor %}
+        </select>
+      </label>
+      <label>Сумма<input type="number" min="0.01" step="0.01" name="amount" required></label>
+      <button>Поставить</button>
+    </form>
+  </article>
+</section>
+
+<section class="card wide">
+  <div class="section-head"><h3>Аукционы</h3><span>{{ auctions|length }} шт.</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Название</th><th>Организатор</th><th>Начало</th><th>Окончание</th></tr></thead>
+      <tbody>
+      {% for auction in auctions %}
+        <tr><td>{{ auction.id }}</td><td>{{ auction.title }}</td><td>{{ auction.organizer.name }}</td><td>{{ auction.starts_at }}</td><td>{{ auction.ends_at }}</td></tr>
+      {% else %}<tr><td colspan="5">Пока нет аукционов.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card wide">
+  <div class="section-head"><h3>Лоты и текущие цены</h3><span>{{ lot_rows|length }} шт.</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Лот</th><th>Аукцион</th><th>Продавец</th><th>Цена</th><th>Шаг</th><th>Статус</th><th></th></tr></thead>
+      <tbody>
+      {% for row in lot_rows %}
+        <tr>
+          <td>{{ row.lot.id }}</td>
+          <td>{{ row.lot.title }}</td>
+          <td>{{ row.lot.auction.title }}</td>
+          <td>{{ row.lot.seller.name }}</td>
+          <td>{{ '%.2f'|format(row.current_price) }}</td>
+          <td>{{ '%.2f'|format(row.lot.min_increment) }}</td>
+          <td><span class="status {{ row.lot.status.value }}">{{ row.lot.status.value }}</span></td>
+          <td>
+            {% if row.lot.status.value == 'open' %}
+            <form class="inline" method="post" action="/ui/lots/{{ row.lot.id }}/close">
+              <button class="secondary">Закрыть</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}<tr><td colspan="8">Пока нет лотов.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="grid two-col">
+  <article class="card">
+    <h3>Продажи</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Лот</th><th>Покупатель</th><th>Сумма</th><th>Дата</th></tr></thead>
+        <tbody>
+        {% for sale in sales %}
+          <tr><td>#{{ sale.lot_id }} {{ sale.lot.title }}</td><td>{{ sale.buyer.name }}</td><td>{{ '%.2f'|format(sale.final_price) }}</td><td>{{ sale.sold_at }}</td></tr>
+        {% else %}<tr><td colspan="4">Продаж пока нет.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="card">
+    <h3>Доходы продавцов</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Продавец</th><th>Продаж</th><th>Доход</th></tr></thead>
+        <tbody>
+        {% for seller_id, seller_name, sales_count, revenue in revenue_rows %}
+          <tr><td>#{{ seller_id }} {{ seller_name }}</td><td>{{ sales_count }}</td><td>{{ '%.2f'|format(revenue) }}</td></tr>
+        {% else %}<tr><td colspan="3">Нет данных.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="card rules">
+  <h3>Содержательные правила предметной области</h3>
+  <ul>
+    <li>ставка принимается только во время проведения аукциона;</li>
+    <li>продавец не может делать ставку на собственный лот;</li>
+    <li>первая ставка не ниже стартовой цены, следующая — не ниже текущей цены + минимальный шаг;</li>
+    <li>закрыть лот можно только после окончания аукциона; победитель определяется по максимальной ставке.</li>
+  </ul>
+</section>
+{% endblock %}
