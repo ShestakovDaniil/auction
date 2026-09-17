@@ -1,0 +1,1 @@
+"""Auction Lab application package."""
