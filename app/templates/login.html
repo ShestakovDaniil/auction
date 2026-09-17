@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Вход — Auction Lab{% endblock %}
+{% block content %}
+<section class="auth-layout">
+    <div class="auth-copy">
+        <span class="eyebrow">С возвращением</span>
+        <h1>Войдите в личный кабинет</h1>
+        <p>Управляйте своими лотами или продолжайте участвовать в торгах.</p>
+        <ul class="feature-list">
+            <li>История ваших ставок</li>
+            <li>Управление лотами продавца</li>
+            <li>Создание и завершение аукционов</li>
+        </ul>
+    </div>
+    <div class="auth-card">
+        <h2>Вход</h2>
+        <p class="muted">Можно использовать логин или email.</p>
+        {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+        <form action="/login" method="post" class="form-stack">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <label>Логин или email
+                <input type="text" name="identity" value="{{ identity or '' }}" autocomplete="username" required autofocus>
+            </label>
+            <label>Пароль
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit" class="button button-primary button-full">Войти</button>
+        </form>
+        <p class="auth-bottom">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+    </div>
+</section>
+{% endblock %}

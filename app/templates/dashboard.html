@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Личный кабинет — Auction Lab{% endblock %}
+{% block content %}
+<section class="dashboard-hero">
+    <div>
+        <span class="eyebrow">Личный кабинет</span>
+        <h1>{{ current_user.username }}</h1>
+        <p>{{ current_user.email }}</p>
+    </div>
+    <span class="role-badge">
+        {% if current_user.role.value == 'seller' %}Продавец{% elif current_user.role.value == 'buyer' %}Покупатель{% else %}Администратор{% endif %}
+    </span>
+</section>
+
+{% if current_user.role.value in ['seller', 'admin'] %}
+<section class="dashboard-section">
+    <div class="section-heading row-heading">
+        <div><span class="eyebrow">Продажи</span><h2>Мои лоты</h2><p>Создайте лот, затем запустите для него аукцион.</p></div>
+        <div class="heading-actions">
+            <a href="/lots/new" class="button button-primary">+ Новый лот</a>
+            <a href="/auctions/new" class="button button-secondary">Запустить аукцион</a>
+        </div>
+    </div>
+
+    {% if seller_rows %}
+    <div class="table-card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Лот</th><th>Стартовая цена</th><th>Аукцион</th><th>Текущая цена</th><th></th></tr></thead>
+                <tbody>
+                {% for row in seller_rows %}
+                <tr>
+                    <td><strong>{{ row.lot.title }}</strong><small class="table-sub">#{{ row.lot.id }} · {{ row.lot.created_at|dt }}</small></td>
+                    <td>{{ row.lot.start_price|money }} ₽</td>
+                    <td>
+                        {% if row.auction %}
+                            <span class="status status-{{ row.auction.status.value }}">
+                                {% if row.auction.status.value == 'active' %}Активен{% elif row.auction.status.value == 'pending' %}Ожидает{% else %}Завершён{% endif %}
+                            </span>
+                        {% else %}<span class="status status-draft">Черновик</span>{% endif %}
+                    </td>
+                    <td>{% if row.auction %}{{ row.auction.current_price|money }} ₽{% else %}—{% endif %}</td>
+                    <td class="table-actions">
+                        {% if row.auction %}<a href="/auctions/{{ row.auction.id }}">Открыть</a>{% else %}<a href="/auctions/new?lot_id={{ row.lot.id }}">Запустить</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state compact"><h3>У вас пока нет лотов</h3><p>Создайте первый лот — он сохранится как черновик до запуска аукциона.</p><a href="/lots/new" class="button button-primary">Создать лот</a></div>
+    {% endif %}
+</section>
+{% endif %}
+
+{% if current_user.role.value in ['buyer', 'admin'] %}
+<section class="dashboard-section">
+    <div class="section-heading row-heading">
+        <div><span class="eyebrow">Покупки</span><h2>Мои ставки</h2><p>Последние 25 ставок и доступные торги.</p></div>
+        <div class="mini-stat"><strong>{{ won_count }}</strong><span>выигранных аукционов</span></div>
+    </div>
+
+    {% if buyer_bids %}
+    <div class="table-card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Лот</th><th>Ставка</th><th>Дата</th><th>Статус</th><th></th></tr></thead>
+                <tbody>
+                {% for bid in buyer_bids %}
+                <tr>
+                    <td><strong>{{ bid.auction.lot.title }}</strong><small class="table-sub">Аукцион #{{ bid.auction.id }}</small></td>
+                    <td>{{ bid.amount|money }} ₽</td>
+                    <td>{{ bid.created_at|dt }}</td>
+                    <td><span class="status status-{{ bid.auction.status.value }}">{% if bid.auction.status.value == 'active' %}Идут торги{% elif bid.auction.status.value == 'pending' %}Ожидает{% else %}Завершён{% endif %}</span></td>
+                    <td class="table-actions"><a href="/auctions/{{ bid.auction.id }}">Открыть</a></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state compact"><h3>Ставок ещё нет</h3><p>Перейдите в каталог и выберите активный аукцион.</p><a href="/" class="button button-primary">В каталог</a></div>
+    {% endif %}
+
+    {% if available_auctions %}
+    <div class="subsection-title"><h3>Сейчас идут торги</h3><a href="/">Весь каталог →</a></div>
+    <div class="auction-grid small-grid">
+        {% for auction in available_auctions %}
+        <article class="auction-card">
+            <div class="card-topline"><span class="status status-active">Идут торги</span><span class="lot-id">#{{ auction.lot.id }}</span></div>
+            <div class="auction-card-body"><h3><a href="/auctions/{{ auction.id }}">{{ auction.lot.title }}</a></h3><p>{{ auction.lot.seller.username }}</p></div>
+            <dl class="auction-meta"><div><dt>Цена</dt><dd>{{ auction.current_price|money }} ₽</dd></div><div><dt>До</dt><dd>{{ auction.end_time|dt }}</dd></div></dl>
+            <a class="card-link" href="/auctions/{{ auction.id }}">Перейти к торгам <span>→</span></a>
+        </article>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

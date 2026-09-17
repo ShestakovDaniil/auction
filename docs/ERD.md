@@ -1,61 +1,44 @@
-# Схема данных
+# ERD текущей версии
 
 ```mermaid
 erDiagram
-    USERS ||--o{ AUCTIONS : organizes
     USERS ||--o{ LOTS : sells
-    AUCTIONS ||--o{ LOTS : contains
-    USERS ||--o{ BIDS : makes
-    LOTS ||--o{ BIDS : receives
-    LOTS ||--o| SALES : closes_as
-    USERS ||--o{ SALES : buys
-    USERS ||--o{ SALES : sells
+    LOTS ||--o{ AUCTIONS : listed_as
+    USERS ||--o{ SALES : bids
+    AUCTIONS ||--o{ SALES : receives
 
     USERS {
-        bigint id PK
-        varchar name
+        int id PK
+        varchar username UK
         varchar email UK
+        varchar hashed_password
         enum role
         datetime created_at
     }
-    AUCTIONS {
-        bigint id PK
+    LOTS {
+        int id PK
         varchar title
         text description
-        datetime starts_at
-        datetime ends_at
-        bigint organizer_id FK
-    }
-    LOTS {
-        bigint id PK
-        bigint auction_id FK
-        bigint seller_id FK
-        varchar title
         decimal start_price
-        decimal min_increment
+        int seller_id FK
         enum status
+        datetime created_at
     }
-    BIDS {
-        bigint id PK
-        bigint lot_id FK
-        bigint buyer_id FK
+    AUCTIONS {
+        int id PK
+        int lot_id FK
+        datetime start_time
+        datetime end_time
+        enum status
+        decimal current_price
+    }
+    SALES {
+        int id PK
+        int auction_id FK
+        int buyer_id FK
         decimal amount
         datetime created_at
     }
-    SALES {
-        bigint id PK
-        bigint lot_id FK_UK
-        bigint buyer_id FK
-        bigint seller_id FK
-        decimal final_price
-        datetime sold_at
-    }
 ```
 
-## Связи
-
-- Один пользователь-продавец может организовать много аукционов.
-- Один аукцион содержит много лотов.
-- Каждый лот имеет одного продавца и много ставок.
-- Покупатель может сделать много ставок на разные лоты.
-- Закрытый с победителем лот имеет ровно одну запись продажи.
+> Историческое имя таблицы `sales` сохранено для совместимости со старой базой. В приложении эти строки являются ставками (`Bid`). Победитель завершённого аукциона вычисляется по максимальной ставке.

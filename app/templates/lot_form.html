@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Новый лот — Auction Lab{% endblock %}
+{% block content %}
+<section class="form-page">
+    <div class="form-page-copy">
+        <a href="/dashboard" class="back-link">← В личный кабинет</a>
+        <span class="eyebrow">Шаг 1 из 2</span>
+        <h1>Создайте лот</h1>
+        <p>Лот сначала сохранится как черновик. На следующем шаге вы зададите время начала и окончания аукциона.</p>
+    </div>
+    <div class="form-card">
+        <form action="/lots/create" method="post" class="form-stack">
+            <label>Название лота
+                <input type="text" name="title" minlength="2" maxlength="200" required autofocus placeholder="Например: Механическая клавиатура">
+            </label>
+            <label>Описание
+                <textarea name="description" rows="6" maxlength="5000" placeholder="Состояние, комплектация и важные характеристики"></textarea>
+            </label>
+            <label>Стартовая цена, ₽
+                <input type="number" name="start_price" min="0.01" step="0.01" required placeholder="1000.00">
+            </label>
+            <button type="submit" class="button button-primary button-full">Сохранить и настроить аукцион</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,83 +1,72 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import LotStatus, UserRole
+from app.models import AuctionStatus, LotStatus, UserRole
 
 
 class UserCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
+    username: str = Field(min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+    role: UserRole = UserRole.BUYER
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
     email: EmailStr
     role: UserRole
-
-
-class UserRead(UserCreate):
-    id: int
     created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
-
-
-class AuctionCreate(BaseModel):
-    title: str = Field(min_length=2, max_length=160)
-    description: str | None = None
-    starts_at: datetime
-    ends_at: datetime
-    organizer_id: int
-
-    @model_validator(mode="after")
-    def validate_period(self):
-        if self.ends_at <= self.starts_at:
-            raise ValueError("ends_at must be later than starts_at")
-        return self
-
-
-class AuctionRead(AuctionCreate):
-    id: int
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
 
 
 class LotCreate(BaseModel):
-    seller_id: int
-    title: str = Field(min_length=2, max_length=160)
-    description: str | None = None
+    title: str = Field(min_length=2, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
     start_price: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
-    min_increment: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
 
 
-class LotRead(LotCreate):
+class LotRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    auction_id: int
+    title: str
+    description: str | None
+    start_price: Decimal
+    seller_id: int
     status: LotStatus
     created_at: datetime
+
+
+class AuctionCreate(BaseModel):
+    lot_id: int
+    start_time: datetime
+    end_time: datetime
+
+
+class AuctionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    lot_id: int
+    start_time: datetime
+    end_time: datetime | None
+    status: AuctionStatus
+    current_price: Decimal
 
 
 class BidCreate(BaseModel):
-    buyer_id: int
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
 
 
-class BidRead(BidCreate):
-    id: int
-    lot_id: int
-    created_at: datetime
+class BidRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-
-class SaleRead(BaseModel):
     id: int
-    lot_id: int
+    auction_id: int
     buyer_id: int
-    seller_id: int
-    final_price: Decimal
-    sold_at: datetime
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RevenueRow(BaseModel):
-    seller_id: int
-    seller_name: str
-    sales_count: int
-    revenue: Decimal
+    amount: Decimal
+    created_at: datetime

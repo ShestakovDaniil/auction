@@ -1,51 +1,28 @@
-from datetime import datetime
-from decimal import Decimal
+"""Compatibility API for the old `sales` module.
 
-from fastapi import APIRouter, Depends, Query
+The old project stored bids in the `sales` table. The fixed build keeps that table
+for DB compatibility, while exposing the records consistently as bids.
+"""
+
+from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.auth import require_current_user
 from app.db import get_db
-from app.models import Sale, User
-from app.schemas import RevenueRow, SaleRead
+from app.models import Auction, Bid, Lot, User
 
-router = APIRouter(prefix="/api", tags=["sales & reports"])
-
-
-@router.get("/sales", response_model=list[SaleRead])
-def list_sales(db: Session = Depends(get_db)):
-    return db.scalars(select(Sale).order_by(Sale.sold_at.desc())).all()
+router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
-@router.get("/reports/revenue", response_model=list[RevenueRow])
-def revenue_report(
-    date_from: datetime | None = Query(default=None),
-    date_to: datetime | None = Query(default=None),
+@router.get("/summary")
+def summary(
     db: Session = Depends(get_db),
+    _current_user: User = Depends(require_current_user),
 ):
-    stmt = (
-        select(
-            Sale.seller_id,
-            User.name.label("seller_name"),
-            func.count(Sale.id).label("sales_count"),
-            func.coalesce(func.sum(Sale.final_price), 0).label("revenue"),
-        )
-        .join(User, User.id == Sale.seller_id)
-        .group_by(Sale.seller_id, User.name)
-        .order_by(func.sum(Sale.final_price).desc())
-    )
-    if date_from is not None:
-        stmt = stmt.where(Sale.sold_at >= date_from)
-    if date_to is not None:
-        stmt = stmt.where(Sale.sold_at <= date_to)
-
-    rows = db.execute(stmt).all()
-    return [
-        RevenueRow(
-            seller_id=row.seller_id,
-            seller_name=row.seller_name,
-            sales_count=row.sales_count,
-            revenue=Decimal(row.revenue),
-        )
-        for row in rows
-    ]
+    return {
+        "users": db.scalar(select(func.count(User.id))) or 0,
+        "lots": db.scalar(select(func.count(Lot.id))) or 0,
+        "auctions": db.scalar(select(func.count(Auction.id))) or 0,
+        "bids": db.scalar(select(func.count(Bid.id))) or 0,
+    }

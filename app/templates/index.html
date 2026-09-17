@@ -1,165 +1,111 @@
 {% extends "base.html" %}
-{% block title %}Auction Lab — панель{% endblock %}
+{% block title %}Каталог аукционов — Auction Lab{% endblock %}
+
 {% block content %}
 <section class="hero">
-  <div>
-    <h2>Панель управления</h2>
-    <p>Все базовые сценарии лабораторной можно показать через эту страницу либо через HTTP API.</p>
-  </div>
-  <div class="badge">v0.1.0</div>
-</section>
-
-<section class="grid forms-grid">
-  <article class="card">
-    <h3>1. Новый пользователь</h3>
-    <form method="post" action="/ui/users">
-      <label>Имя<input name="name" required minlength="2"></label>
-      <label>Email<input type="email" name="email" required></label>
-      <label>Роль
-        <select name="role">
-          {% for role in roles %}<option value="{{ role }}">{{ role }}</option>{% endfor %}
-        </select>
-      </label>
-      <button>Создать</button>
-    </form>
-  </article>
-
-  <article class="card">
-    <h3>2. Новый аукцион</h3>
-    <form method="post" action="/ui/auctions">
-      <label>Название<input name="title" required></label>
-      <label>Описание<textarea name="description"></textarea></label>
-      <label>Начало<input type="datetime-local" name="starts_at" required></label>
-      <label>Окончание<input type="datetime-local" name="ends_at" required></label>
-      <label>Организатор
-        <select name="organizer_id" required>
-          {% for user in users %}<option value="{{ user.id }}">#{{ user.id }} {{ user.name }} ({{ user.role.value }})</option>{% endfor %}
-        </select>
-      </label>
-      <button>Создать</button>
-    </form>
-  </article>
-
-  <article class="card">
-    <h3>3. Новый лот</h3>
-    <form method="post" action="/ui/lots">
-      <label>Аукцион
-        <select name="auction_id" required>
-          {% for auction in auctions %}<option value="{{ auction.id }}">#{{ auction.id }} {{ auction.title }}</option>{% endfor %}
-        </select>
-      </label>
-      <label>Продавец
-        <select name="seller_id" required>
-          {% for user in users %}<option value="{{ user.id }}">#{{ user.id }} {{ user.name }} ({{ user.role.value }})</option>{% endfor %}
-        </select>
-      </label>
-      <label>Название<input name="title" required></label>
-      <label>Описание<textarea name="description"></textarea></label>
-      <label>Стартовая цена<input type="number" min="0.01" step="0.01" name="start_price" required></label>
-      <label>Мин. шаг<input type="number" min="0.01" step="0.01" name="min_increment" value="10.00" required></label>
-      <button>Создать</button>
-    </form>
-  </article>
-
-  <article class="card">
-    <h3>4. Сделать ставку</h3>
-    <form method="post" action="/ui/bids">
-      <label>Лот
-        <select name="lot_id" required>
-          {% for row in lot_rows %}<option value="{{ row.lot.id }}">#{{ row.lot.id }} {{ row.lot.title }} — {{ '%.2f'|format(row.current_price) }}</option>{% endfor %}
-        </select>
-      </label>
-      <label>Покупатель
-        <select name="buyer_id" required>
-          {% for user in users %}<option value="{{ user.id }}">#{{ user.id }} {{ user.name }} ({{ user.role.value }})</option>{% endfor %}
-        </select>
-      </label>
-      <label>Сумма<input type="number" min="0.01" step="0.01" name="amount" required></label>
-      <button>Поставить</button>
-    </form>
-  </article>
-</section>
-
-<section class="card wide">
-  <div class="section-head"><h3>Аукционы</h3><span>{{ auctions|length }} шт.</span></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>ID</th><th>Название</th><th>Организатор</th><th>Начало</th><th>Окончание</th></tr></thead>
-      <tbody>
-      {% for auction in auctions %}
-        <tr><td>{{ auction.id }}</td><td>{{ auction.title }}</td><td>{{ auction.organizer.name }}</td><td>{{ auction.starts_at }}</td><td>{{ auction.ends_at }}</td></tr>
-      {% else %}<tr><td colspan="5">Пока нет аукционов.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card wide">
-  <div class="section-head"><h3>Лоты и текущие цены</h3><span>{{ lot_rows|length }} шт.</span></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>ID</th><th>Лот</th><th>Аукцион</th><th>Продавец</th><th>Цена</th><th>Шаг</th><th>Статус</th><th></th></tr></thead>
-      <tbody>
-      {% for row in lot_rows %}
-        <tr>
-          <td>{{ row.lot.id }}</td>
-          <td>{{ row.lot.title }}</td>
-          <td>{{ row.lot.auction.title }}</td>
-          <td>{{ row.lot.seller.name }}</td>
-          <td>{{ '%.2f'|format(row.current_price) }}</td>
-          <td>{{ '%.2f'|format(row.lot.min_increment) }}</td>
-          <td><span class="status {{ row.lot.status.value }}">{{ row.lot.status.value }}</span></td>
-          <td>
-            {% if row.lot.status.value == 'open' %}
-            <form class="inline" method="post" action="/ui/lots/{{ row.lot.id }}/close">
-              <button class="secondary">Закрыть</button>
-            </form>
+    <div class="hero-copy">
+        <span class="eyebrow">Электронная торговая площадка</span>
+        <h1>Находите лоты, делайте ставки и управляйте торгами в одном месте.</h1>
+        <p>Покупатели участвуют в открытых аукционах, продавцы создают лоты и публикуют торги из личного кабинета.</p>
+        <div class="hero-actions">
+            <a href="#catalog" class="button button-primary">Смотреть аукционы</a>
+            {% if not current_user %}
+                <a href="/register" class="button button-secondary">Создать аккаунт</a>
+            {% elif current_user.role.value in ['seller', 'admin'] %}
+                <a href="/lots/new" class="button button-secondary">Выставить лот</a>
+            {% else %}
+                <a href="/dashboard" class="button button-secondary">Мои ставки</a>
             {% endif %}
-          </td>
-        </tr>
-      {% else %}<tr><td colspan="8">Пока нет лотов.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
+        </div>
+    </div>
+    <div class="hero-panel">
+        <div class="metric"><strong>{{ active_count }}</strong><span>активных аукционов</span></div>
+        <div class="metric"><strong>{{ seller_count }}</strong><span>продавцов</span></div>
+        <div class="metric"><strong>{{ bids_count }}</strong><span>ставок сделано</span></div>
+    </div>
 </section>
 
-<section class="grid two-col">
-  <article class="card">
-    <h3>Продажи</h3>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Лот</th><th>Покупатель</th><th>Сумма</th><th>Дата</th></tr></thead>
-        <tbody>
-        {% for sale in sales %}
-          <tr><td>#{{ sale.lot_id }} {{ sale.lot.title }}</td><td>{{ sale.buyer.name }}</td><td>{{ '%.2f'|format(sale.final_price) }}</td><td>{{ sale.sold_at }}</td></tr>
-        {% else %}<tr><td colspan="4">Продаж пока нет.</td></tr>{% endfor %}
-        </tbody>
-      </table>
+<section id="catalog" class="catalog-section">
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">Каталог</span>
+            <h2>Аукционы</h2>
+            <p>Найдено: {{ total }}</p>
+        </div>
     </div>
-  </article>
 
-  <article class="card">
-    <h3>Доходы продавцов</h3>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Продавец</th><th>Продаж</th><th>Доход</th></tr></thead>
-        <tbody>
-        {% for seller_id, seller_name, sales_count, revenue in revenue_rows %}
-          <tr><td>#{{ seller_id }} {{ seller_name }}</td><td>{{ sales_count }}</td><td>{{ '%.2f'|format(revenue) }}</td></tr>
-        {% else %}<tr><td colspan="3">Нет данных.</td></tr>{% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </article>
-</section>
+    <form method="get" action="/" class="filter-bar">
+        <div class="search-field">
+            <label class="sr-only" for="q">Поиск</label>
+            <input id="q" type="search" name="q" value="{{ q }}" placeholder="Поиск по лоту или продавцу">
+        </div>
+        <label class="select-field">
+            <span class="sr-only">Статус</span>
+            <select name="status">
+                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Активные</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Ожидают старта</option>
+                <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Завершённые</option>
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Все</option>
+            </select>
+        </label>
+        <button class="button button-primary" type="submit">Найти</button>
+        {% if q or status_filter != 'active' %}<a class="button button-ghost" href="/">Сбросить</a>{% endif %}
+    </form>
 
-<section class="card rules">
-  <h3>Содержательные правила предметной области</h3>
-  <ul>
-    <li>ставка принимается только во время проведения аукциона;</li>
-    <li>продавец не может делать ставку на собственный лот;</li>
-    <li>первая ставка не ниже стартовой цены, следующая — не ниже текущей цены + минимальный шаг;</li>
-    <li>закрыть лот можно только после окончания аукциона; победитель определяется по максимальной ставке.</li>
-  </ul>
+    {% if auctions %}
+        <div class="auction-grid">
+            {% for auction in auctions %}
+            <article class="auction-card">
+                <div class="card-topline">
+                    <span class="status status-{{ auction.status.value }}">
+                        {% if auction.status.value == 'active' %}Идут торги{% elif auction.status.value == 'pending' %}Ожидает старта{% else %}Завершён{% endif %}
+                    </span>
+                    <span class="lot-id">#{{ auction.lot.id }}</span>
+                </div>
+                <div class="auction-card-body">
+                    <h3><a href="/auctions/{{ auction.id }}">{{ auction.lot.title }}</a></h3>
+                    <p>{{ auction.lot.description or 'Продавец не добавил описание к этому лоту.' }}</p>
+                </div>
+                <dl class="auction-meta">
+                    <div><dt>Текущая цена</dt><dd>{{ auction.current_price|money }} ₽</dd></div>
+                    <div><dt>Продавец</dt><dd>{{ auction.lot.seller.username }}</dd></div>
+                    <div><dt>{% if auction.status.value == 'pending' %}Начало{% else %}Окончание{% endif %}</dt><dd>{% if auction.status.value == 'pending' %}{{ auction.start_time|dt }}{% else %}{{ auction.end_time|dt }}{% endif %}</dd></div>
+                </dl>
+                <a class="card-link" href="/auctions/{{ auction.id }}">Открыть аукцион <span>→</span></a>
+            </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">⌁</div>
+            <h3>По вашему запросу ничего нет</h3>
+            <p>Попробуйте изменить фильтр или поисковую фразу.</p>
+            <a href="/" class="button button-secondary">Показать активные</a>
+        </div>
+    {% endif %}
+
+    {% if total_pages > 1 %}
+    <nav class="pagination" aria-label="Страницы каталога">
+        {% if page > 1 %}
+            <a href="/?page={{ page - 1 }}&status={{ status_filter }}{% if q %}&q={{ q|urlencode }}{% endif %}">← Назад</a>
+        {% else %}<span class="disabled">← Назад</span>{% endif %}
+
+        <div class="page-numbers">
+            {% for number in range(1, total_pages + 1) %}
+                {% if number == page %}
+                    <span class="current">{{ number }}</span>
+                {% elif number == 1 or number == total_pages or (number >= page - 2 and number <= page + 2) %}
+                    <a href="/?page={{ number }}&status={{ status_filter }}{% if q %}&q={{ q|urlencode }}{% endif %}">{{ number }}</a>
+                {% elif number == page - 3 or number == page + 3 %}
+                    <span class="ellipsis">…</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if page < total_pages %}
+            <a href="/?page={{ page + 1 }}&status={{ status_filter }}{% if q %}&q={{ q|urlencode }}{% endif %}">Вперёд →</a>
+        {% else %}<span class="disabled">Вперёд →</span>{% endif %}
+    </nav>
+    {% endif %}
 </section>
 {% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Новый аукцион — Auction Lab{% endblock %}
+{% block content %}
+<section class="form-page">
+    <div class="form-page-copy">
+        <a href="/dashboard" class="back-link">← В личный кабинет</a>
+        <span class="eyebrow">Шаг 2 из 2</span>
+        <h1>Запустите аукцион</h1>
+        <p>Выберите лот и срок торгов. Если время начала уже наступило, аукцион станет активным сразу.</p>
+    </div>
+    <div class="form-card">
+        {% if lots %}
+        <form action="/auctions/create" method="post" class="form-stack">
+            <label>Лот
+                <select name="lot_id" required>
+                    {% for lot in lots %}<option value="{{ lot.id }}" {% if lot.id == selected_lot_id %}selected{% endif %}>#{{ lot.id }} — {{ lot.title }} · {{ lot.start_price|money }} ₽</option>{% endfor %}
+                </select>
+            </label>
+            <div class="form-grid-two">
+                <label>Начало
+                    <input type="datetime-local" name="start_time" value="{{ default_start }}" required>
+                </label>
+                <label>Окончание
+                    <input type="datetime-local" name="end_time" value="{{ default_end }}" required>
+                </label>
+            </div>
+            <button type="submit" class="button button-primary button-full">Опубликовать аукцион</button>
+        </form>
+        {% else %}
+        <div class="empty-state compact no-border">
+            <h3>Нет свободных лотов</h3>
+            <p>Сначала создайте лот. Лоты с уже активным или ожидающим аукционом здесь не показываются.</p>
+            <a href="/lots/new" class="button button-primary">Создать лот</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

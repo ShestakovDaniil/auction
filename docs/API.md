@@ -1,42 +1,42 @@
 # HTTP API
 
-После запуска интерактивная документация доступна по адресу `http://127.0.0.1:8000/docs`.
+Интерактивная документация после запуска: `/docs`.
 
-## Основные адреса
+## Системные
 
-| Метод | Путь | Назначение |
+| Метод | URL | Назначение |
 |---|---|---|
-| GET | `/health` | Проверка приложения и подключения к БД |
-| GET | `/api/users` | Список пользователей |
-| POST | `/api/users` | Создать покупателя/продавца |
+| GET | `/health` | Проверка подключения к MariaDB/MySQL |
+
+## Пользователь
+
+| Метод | URL | Назначение |
+|---|---|---|
+| POST | `/api/users` | Регистрация пользователя через JSON API |
+| GET | `/api/users/me` | Текущий пользователь по auth-cookie |
+
+## Лоты
+
+| Метод | URL | Назначение |
+|---|---|---|
+| POST | `/api/lots` | Создать лот текущим продавцом |
+| GET | `/api/lots/{lot_id}` | Получить лот |
+| GET | `/api/lots/{lot_id}/bids` | История ставок по аукционам лота |
+| POST | `/api/lots/auctions/{auction_id}/bids` | Сделать ставку текущим покупателем |
+
+## Аукционы
+
+| Метод | URL | Назначение |
+|---|---|---|
 | GET | `/api/auctions` | Список аукционов |
-| POST | `/api/auctions` | Создать аукцион |
-| GET | `/api/auctions/{id}` | Получить аукцион |
-| GET | `/api/auctions/{id}/lots` | Лоты аукциона |
-| POST | `/api/auctions/{id}/lots` | Добавить лот |
-| GET | `/api/lots/{id}` | Получить лот |
-| GET | `/api/lots/{id}/bids` | Ставки по лоту |
-| POST | `/api/lots/{id}/bids` | Сделать ставку |
-| POST | `/api/lots/{id}/close` | Закрыть лот после окончания аукциона |
-| GET | `/api/sales` | Продажи |
-| GET | `/api/reports/revenue` | Доходы продавцов; можно передать `date_from` и `date_to` |
+| GET | `/api/auctions/{auction_id}` | Аукцион |
+| POST | `/api/auctions` | Запустить аукцион для своего лота |
+| POST | `/api/auctions/{auction_id}/close` | Завершить свой аукцион |
 
-## Примеры
+## Отчёт
 
-Создать пользователя:
+| Метод | URL | Назначение |
+|---|---|---|
+| GET | `/api/reports/summary` | Количество пользователей, лотов, аукционов и ставок |
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/users \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Иван","email":"ivan@example.com","role":"buyer"}'
-```
-
-Сделать ставку:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/lots/1/bids \
-  -H 'Content-Type: application/json' \
-  -d '{"buyer_id":2,"amount":2600.00}'
-```
-
-Некорректные запросы получают HTTP-коды `404`, `409` или `422` с полем `detail`.
+Авторизованные API-маршруты используют ту же HttpOnly JWT-cookie, что и веб-интерфейс.

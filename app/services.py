@@ -1,155 +1,234 @@
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
-from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from fastapi import HTTPException
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.domain import DomainRuleError, minimum_allowed_bid, validate_bid_amount, validate_bid_window
-from app.models import Auction, Bid, Lot, LotStatus, Sale, User, UserRole
+from app.auth import hash_password
+from app.config import get_settings
+from app.models import Auction, AuctionStatus, Bid, Lot, LotStatus, User, UserRole
 from app.schemas import AuctionCreate, BidCreate, LotCreate, UserCreate
 
+settings = get_settings()
+MONEY = Decimal("0.01")
 
-def _not_found(name: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{name} not found")
+
+def as_money(value: Decimal | float | int | str) -> Decimal:
+    return Decimal(str(value)).quantize(MONEY, rounding=ROUND_HALF_UP)
 
 
 def create_user(db: Session, data: UserCreate) -> User:
-    user = User(name=data.name, email=str(data.email), role=data.role)
+    if data.role == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Нельзя зарегистрировать администратора через API")
+
+    existing = db.scalar(
+        select(User).where(or_(User.username == data.username.strip(), User.email == str(data.email).lower()))
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Логин или email уже занят")
+
+    user = User(
+        username=data.username.strip(),
+        email=str(data.email).lower(),
+        hashed_password=hash_password(data.password),
+        role=data.role,
+    )
     db.add(user)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="User with this email already exists") from exc
+        raise HTTPException(status_code=409, detail="Логин или email уже занят") from exc
     db.refresh(user)
     return user
 
 
-def create_auction(db: Session, data: AuctionCreate) -> Auction:
-    organizer = db.get(User, data.organizer_id)
-    if not organizer:
-        raise _not_found("Organizer")
-    if organizer.role not in {UserRole.SELLER, UserRole.BOTH}:
-        raise HTTPException(status_code=422, detail="Organizer must have seller role")
+def create_lot(db: Session, owner: User, data: LotCreate) -> Lot:
+    if owner.role not in {UserRole.SELLER, UserRole.ADMIN}:
+        raise HTTPException(status_code=403, detail="Создавать лоты может только продавец")
 
-    auction = Auction(**data.model_dump())
-    db.add(auction)
-    db.commit()
-    db.refresh(auction)
-    return auction
-
-
-def create_lot(db: Session, auction_id: int, data: LotCreate) -> Lot:
-    auction = db.get(Auction, auction_id)
-    if not auction:
-        raise _not_found("Auction")
-    if datetime.now() >= auction.ends_at:
-        raise HTTPException(status_code=422, detail="Cannot add a lot to an ended auction")
-
-    seller = db.get(User, data.seller_id)
-    if not seller:
-        raise _not_found("Seller")
-    if seller.role not in {UserRole.SELLER, UserRole.BOTH}:
-        raise HTTPException(status_code=422, detail="User must have seller role")
-
-    lot = Lot(auction_id=auction_id, **data.model_dump())
+    lot = Lot(
+        title=data.title.strip(),
+        description=(data.description or "").strip() or None,
+        start_price=as_money(data.start_price),
+        seller_id=owner.id,
+        status=LotStatus.DRAFT,
+    )
     db.add(lot)
     db.commit()
     db.refresh(lot)
     return lot
 
 
-def current_price(db: Session, lot: Lot) -> Decimal:
-    highest = db.scalar(select(func.max(Bid.amount)).where(Bid.lot_id == lot.id))
-    return Decimal(highest) if highest is not None else Decimal(lot.start_price)
+def _validate_auction_window(start_time: datetime, end_time: datetime) -> None:
+    if end_time <= start_time:
+        raise HTTPException(status_code=422, detail="Окончание аукциона должно быть позже начала")
 
 
-def place_bid(db: Session, lot_id: int, data: BidCreate) -> Bid:
-    # Row lock serializes competing bids for the same lot in MariaDB/InnoDB.
-    lot = db.scalar(select(Lot).where(Lot.id == lot_id).with_for_update())
+def create_auction(db: Session, owner: User, data: AuctionCreate) -> Auction:
+    if owner.role not in {UserRole.SELLER, UserRole.ADMIN}:
+        raise HTTPException(status_code=403, detail="Создавать аукционы может только продавец")
+
+    _validate_auction_window(data.start_time, data.end_time)
+    lot = db.scalar(select(Lot).where(Lot.id == data.lot_id).with_for_update())
     if not lot:
         db.rollback()
-        raise _not_found("Lot")
-    if lot.status != LotStatus.OPEN:
+        raise HTTPException(status_code=404, detail="Лот не найден")
+    if lot.seller_id != owner.id and owner.role != UserRole.ADMIN:
         db.rollback()
-        raise HTTPException(status_code=422, detail="Lot is already closed")
+        raise HTTPException(status_code=403, detail="Нельзя создать аукцион для чужого лота")
 
-    auction = db.get(Auction, lot.auction_id)
-    if not auction:
+    existing = db.scalar(
+        select(Auction).where(
+            Auction.lot_id == lot.id,
+            Auction.status.in_([AuctionStatus.PENDING, AuctionStatus.ACTIVE]),
+        )
+    )
+    if existing:
         db.rollback()
-        raise _not_found("Auction")
+        raise HTTPException(status_code=409, detail="Для этого лота уже есть незавершённый аукцион")
 
-    buyer = db.get(User, data.buyer_id)
-    if not buyer:
-        db.rollback()
-        raise _not_found("Buyer")
-    if buyer.role not in {UserRole.BUYER, UserRole.BOTH}:
-        db.rollback()
-        raise HTTPException(status_code=422, detail="User must have buyer role")
-    if lot.seller_id == buyer.id:
-        db.rollback()
-        raise HTTPException(status_code=422, detail="Seller cannot bid on own lot")
+    now = datetime.now()
+    initial_status = AuctionStatus.PENDING if data.start_time > now else AuctionStatus.ACTIVE
+    auction = Auction(
+        lot_id=lot.id,
+        start_time=data.start_time,
+        end_time=data.end_time,
+        status=initial_status,
+        current_price=as_money(lot.start_price),
+    )
+    lot.status = LotStatus.ACTIVE
+    db.add(auction)
+    db.commit()
+    db.refresh(auction)
+    return auction
 
-    highest = db.scalar(select(func.max(Bid.amount)).where(Bid.lot_id == lot_id))
-    minimum = minimum_allowed_bid(
-        Decimal(lot.start_price),
-        Decimal(lot.min_increment),
-        Decimal(highest) if highest is not None else None,
+
+def highest_bid(db: Session, auction_id: int) -> Bid | None:
+    return db.scalar(
+        select(Bid)
+        .where(Bid.auction_id == auction_id)
+        .order_by(Bid.amount.desc(), Bid.created_at.asc(), Bid.id.asc())
+        .limit(1)
     )
 
-    try:
-        validate_bid_window(datetime.now(), auction.starts_at, auction.ends_at)
-        validate_bid_amount(Decimal(data.amount), minimum)
-    except DomainRuleError as exc:
-        db.rollback()
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    bid = Bid(lot_id=lot_id, buyer_id=data.buyer_id, amount=data.amount)
+def synchronize_auction_statuses(db: Session) -> int:
+    """Synchronize pending/expired auctions using MariaDB-compatible updates."""
+    now = datetime.now()
+    changed = 0
+
+    pending = db.scalars(
+        select(Auction).where(
+            Auction.status == AuctionStatus.PENDING,
+            Auction.start_time <= now,
+        )
+    ).all()
+    for auction in pending:
+        if auction.end_time is not None and auction.end_time <= now:
+            auction.status = AuctionStatus.CLOSED
+            auction.lot.status = LotStatus.CLOSED
+        else:
+            auction.status = AuctionStatus.ACTIVE
+        changed += 1
+
+    expired = db.scalars(
+        select(Auction)
+        .options(joinedload(Auction.lot))
+        .where(
+            Auction.status == AuctionStatus.ACTIVE,
+            Auction.end_time.is_not(None),
+            Auction.end_time <= now,
+        )
+    ).all()
+    for auction in expired:
+        auction.status = AuctionStatus.CLOSED
+        auction.lot.status = LotStatus.CLOSED
+        changed += 1
+
+    if changed:
+        db.commit()
+    return changed
+
+
+
+
+def minimum_bid_for_auction(db: Session, auction: Auction) -> Decimal:
+    bid_count = db.scalar(select(func.count(Bid.id)).where(Bid.auction_id == auction.id)) or 0
+    current = as_money(auction.current_price)
+    if bid_count == 0:
+        return current
+    return current + as_money(settings.min_bid_increment)
+
+
+def place_bid(db: Session, buyer: User, auction_id: int, data: BidCreate) -> Bid:
+    if buyer.role not in {UserRole.BUYER, UserRole.ADMIN}:
+        raise HTTPException(status_code=403, detail="Ставки доступны покупателям")
+
+    auction = db.scalar(
+        select(Auction)
+        .options(joinedload(Auction.lot))
+        .where(Auction.id == auction_id)
+        .with_for_update()
+    )
+    if not auction:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Аукцион не найден")
+
+    now = datetime.now()
+    if auction.status == AuctionStatus.PENDING and auction.start_time <= now:
+        auction.status = AuctionStatus.ACTIVE
+    if auction.end_time is not None and auction.end_time <= now:
+        auction.status = AuctionStatus.CLOSED
+        auction.lot.status = LotStatus.CLOSED
+        db.commit()
+        raise HTTPException(status_code=409, detail="Аукцион уже завершён")
+    if auction.status != AuctionStatus.ACTIVE or auction.start_time > now:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Аукцион сейчас не принимает ставки")
+    if auction.lot.seller_id == buyer.id:
+        db.rollback()
+        raise HTTPException(status_code=403, detail="Нельзя делать ставку на собственный лот")
+
+    amount = as_money(data.amount)
+    minimum = minimum_bid_for_auction(db, auction)
+    if amount < minimum:
+        db.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail=f"Минимальная следующая ставка: {minimum:.2f} ₽",
+        )
+
+    bid = Bid(auction_id=auction.id, buyer_id=buyer.id, amount=amount)
+    auction.current_price = amount
     db.add(bid)
     db.commit()
     db.refresh(bid)
     return bid
 
 
-def close_lot(db: Session, lot_id: int) -> Sale | None:
-    lot = db.scalar(select(Lot).where(Lot.id == lot_id).with_for_update())
-    if not lot:
-        db.rollback()
-        raise _not_found("Lot")
-    if lot.status != LotStatus.OPEN:
-        db.rollback()
-        raise HTTPException(status_code=422, detail="Lot is already closed")
-
-    auction = db.get(Auction, lot.auction_id)
+def close_auction(db: Session, owner: User, auction_id: int) -> Auction:
+    auction = db.scalar(
+        select(Auction)
+        .options(joinedload(Auction.lot))
+        .where(Auction.id == auction_id)
+        .with_for_update()
+    )
     if not auction:
         db.rollback()
-        raise _not_found("Auction")
-    if datetime.now() < auction.ends_at:
+        raise HTTPException(status_code=404, detail="Аукцион не найден")
+    if auction.lot.seller_id != owner.id and owner.role != UserRole.ADMIN:
         db.rollback()
-        raise HTTPException(status_code=422, detail="Lot can be closed only after the auction ends")
+        raise HTTPException(status_code=403, detail="Нельзя закрыть чужой аукцион")
+    if auction.status == AuctionStatus.CLOSED:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Аукцион уже завершён")
 
-    highest_bid = db.scalar(
-        select(Bid)
-        .where(Bid.lot_id == lot_id)
-        .order_by(Bid.amount.desc(), Bid.created_at.asc())
-        .limit(1)
-    )
-
-    if highest_bid is None:
-        lot.status = LotStatus.UNSOLD
-        db.commit()
-        return None
-
-    sale = Sale(
-        lot_id=lot.id,
-        buyer_id=highest_bid.buyer_id,
-        seller_id=lot.seller_id,
-        final_price=highest_bid.amount,
-    )
-    lot.status = LotStatus.SOLD
-    db.add(sale)
+    auction.status = AuctionStatus.CLOSED
+    auction.end_time = datetime.now()
+    auction.lot.status = LotStatus.CLOSED
     db.commit()
-    db.refresh(sale)
-    return sale
+    db.refresh(auction)
+    return auction

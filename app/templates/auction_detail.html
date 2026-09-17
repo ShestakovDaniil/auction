@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ auction.lot.title }} — Auction Lab{% endblock %}
+{% block content %}
+<a href="/" class="back-link">← К каталогу</a>
+<section class="detail-layout">
+    <div class="detail-main">
+        <div class="detail-card">
+            <div class="card-topline">
+                <span class="status status-{{ auction.status.value }}">{% if auction.status.value == 'active' %}Идут торги{% elif auction.status.value == 'pending' %}Ожидает старта{% else %}Завершён{% endif %}</span>
+                <span class="lot-id">Лот #{{ auction.lot.id }} · Аукцион #{{ auction.id }}</span>
+            </div>
+            <h1>{{ auction.lot.title }}</h1>
+            <p class="detail-description">{{ auction.lot.description or 'Описание к лоту не добавлено.' }}</p>
+            <div class="detail-facts">
+                <div><span>Продавец</span><strong>{{ auction.lot.seller.username }}</strong></div>
+                <div><span>Стартовая цена</span><strong>{{ auction.lot.start_price|money }} ₽</strong></div>
+                <div><span>Начало</span><strong>{{ auction.start_time|dt }}</strong></div>
+                <div><span>Окончание</span><strong>{{ auction.end_time|dt }}</strong></div>
+            </div>
+        </div>
+
+        <section class="bids-section">
+            <div class="section-heading row-heading"><div><span class="eyebrow">История</span><h2>Ставки</h2></div><span class="count-pill">{{ bids|length }}</span></div>
+            {% if bids %}
+            <div class="table-card"><div class="table-wrap"><table class="data-table">
+                <thead><tr><th>Участник</th><th>Сумма</th><th>Время</th></tr></thead>
+                <tbody>{% for bid in bids %}<tr><td><strong>{{ bid.buyer.username }}</strong>{% if loop.first %}<small class="leader-label">Лидер</small>{% endif %}</td><td>{{ bid.amount|money }} ₽</td><td>{{ bid.created_at|dt }}</td></tr>{% endfor %}</tbody>
+            </table></div></div>
+            {% else %}<div class="empty-state compact"><h3>Ставок пока нет</h3><p>Первый участник может открыть торги.</p></div>{% endif %}
+        </section>
+    </div>
+
+    <aside class="bid-panel">
+        <span class="eyebrow">Текущая цена</span>
+        <div class="current-price">{{ auction.current_price|money }} <small>₽</small></div>
+        {% if auction.status.value == 'active' %}
+            <p class="bid-hint">Следующая ставка — от <strong>{{ minimum_bid|money }} ₽</strong></p>
+            {% if can_bid %}
+                <form action="/auctions/{{ auction.id }}/bid" method="post" class="form-stack bid-form">
+                    <label>Ваша ставка
+                        <input type="number" name="amount" min="{{ minimum_bid }}" step="0.01" value="{{ minimum_bid }}" required>
+                    </label>
+                    <button type="submit" class="button button-primary button-full">Сделать ставку</button>
+                </form>
+            {% elif not current_user %}
+                <a href="/login?next=/auctions/{{ auction.id }}" class="button button-primary button-full">Войти, чтобы участвовать</a>
+            {% elif current_user.id == auction.lot.seller_id %}
+                <div class="inline-note">Это ваш лот — продавец не может делать ставку на собственный аукцион.</div>
+            {% else %}
+                <div class="inline-note">Для участия нужен аккаунт покупателя.</div>
+            {% endif %}
+        {% elif auction.status.value == 'pending' %}
+            <div class="inline-note">Торги начнутся {{ auction.start_time|dt }}.</div>
+        {% else %}
+            {% if winner %}
+                <div class="winner-box"><span>Победитель</span><strong>{{ winner.buyer.username }}</strong><small>{{ winner.amount|money }} ₽</small></div>
+            {% else %}<div class="inline-note">Аукцион завершён без ставок.</div>{% endif %}
+        {% endif %}
+
+        {% if can_manage and auction.status.value != 'closed' %}
+            <div class="panel-divider"></div>
+            <form action="/auctions/{{ auction.id }}/close" method="post">
+                <button type="submit" class="button button-danger button-full">Завершить аукцион</button>
+            </form>
+        {% endif %}
+    </aside>
+</section>
+{% endblock %}

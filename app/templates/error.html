@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Ошибка {{ error_code }} — Auction Lab{% endblock %}
+{% block content %}
+<section class="error-page">
+    <span class="error-code">{{ error_code }}</span>
+    <h1>Не удалось выполнить запрос</h1>
+    <p>{{ error_message }}</p>
+    <div class="hero-actions"><a href="/" class="button button-primary">На главную</a>{% if current_user %}<a href="/dashboard" class="button button-secondary">Личный кабинет</a>{% endif %}</div>
+</section>
+{% endblock %}

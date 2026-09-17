@@ -1,27 +1,53 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Auction Lab{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1>Auction Lab</h1>
-      <p>Учёт аукционов, лотов, ставок, продаж и доходов</p>
+<header class="site-header">
+    <div class="container nav-shell">
+        <a href="/" class="brand" aria-label="Auction Lab — главная">
+            <span class="brand-mark">A</span>
+            <span>
+                <strong>Auction Lab</strong>
+                <small>онлайн-аукционы</small>
+            </span>
+        </a>
+        <nav class="nav-links" aria-label="Основная навигация">
+            <a href="/" class="nav-link">Каталог</a>
+            {% if current_user %}
+                {% if current_user.role.value in ['seller', 'admin'] %}
+                    <a href="/lots/new" class="nav-link">Создать лот</a>
+                {% endif %}
+                <a href="/dashboard" class="nav-link nav-account">{{ current_user.username }}</a>
+                <a href="/logout" class="button button-ghost button-small">Выйти</a>
+            {% else %}
+                <a href="/login" class="nav-link">Войти</a>
+                <a href="/register" class="button button-primary button-small">Регистрация</a>
+            {% endif %}
+        </nav>
     </div>
-    <nav>
-      <a href="/">Веб-интерфейс</a>
-      <a href="/docs">Swagger API</a>
-      <a href="/health">Health</a>
-    </nav>
-  </header>
-  <main class="container">
-    {% if message %}<div class="notice success">{{ message }}</div>{% endif %}
-    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+</header>
+
+<main class="container page-shell">
+    {% if message %}
+        <div class="alert alert-{{ message_level }}" role="status">{{ message }}</div>
+    {% endif %}
     {% block content %}{% endblock %}
-  </main>
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-shell">
+        <div>
+            <strong>Auction Lab</strong>
+            <p>Учебная информационная система электронных торгов.</p>
+        </div>
+        <span>MariaDB / MySQL · FastAPI · SQLAlchemy</span>
+    </div>
+</footer>
 </body>
 </html>
