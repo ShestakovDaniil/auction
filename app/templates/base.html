@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Auction Lab{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Auction Lab</h1>
+      <p>Учёт аукционов, лотов, ставок, продаж и доходов</p>
+    </div>
+    <nav>
+      <a href="/">Веб-интерфейс</a>
+      <a href="/docs">Swagger API</a>
+      <a href="/health">Health</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% if message %}<div class="notice success">{{ message }}</div>{% endif %}
+    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
