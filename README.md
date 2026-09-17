@@ -75,8 +75,7 @@
 - переход после входа проверяется и не допускает внешний redirect;
 - настроен `TrustedHostMiddleware`;
 - ответы содержат `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` и `Permissions-Policy`;
-- при `COOKIE_SECURE=true` добавляется HSTS;
-- ORM SQLAlchemy используется без конкатенации пользовательских значений в SQL.
+- при `COOKIE_SECURE=true` добавляется HSTS.
 
 Для production приложение должно работать за HTTPS reverse proxy. В `.env` необходимо установить `APP_ENV=production`, `COOKIE_SECURE=true`, корректный `ALLOWED_HOSTS` и уникальный секрет.
 
@@ -140,7 +139,7 @@
 │   └── ERD.md
 ├── scripts
 │   ├── check_db.py
-│   └── seed.py
+│   └── setup_env.py
 ├── .gitignore
 ├── README.md
 ├── TZ_ANALYSIS.md
@@ -152,8 +151,6 @@
 ### Корень проекта
 
 - `.gitignore` – исключает локальный `.env`, виртуальные окружения, кэш Python и файлы IDE из Git.
-- `README.md` – инструкция по установке, конфигурации, запуску, архитектуре и HTTP-маршрутам.
-- `TZ_ANALYSIS.md` – сверка фактической реализации с исходным ТЗ и рекомендуемые правки формулировок.
 - `requirements.txt` – зависимости Python, необходимые для запуска приложения.
 
 ### `app/`
@@ -223,6 +220,7 @@
 ### `scripts/`
 
 - `scripts/check_db.py` – проверяет соединение с MariaDB/MySQL и выводит версию сервера.
+- `scripts/setup_env.py` – интерактивно создаёт локальный `.env`, запрашивает параметры MariaDB/MySQL и генерирует `APP_SECRET_KEY`.
 
 ## HTTP-маршруты
 
@@ -280,7 +278,9 @@
 
 ## Подготовка MariaDB / MySQL
 
-Пример:
+Перед первым запуском создайте базу данных и отдельного пользователя приложения.
+
+Пример для MariaDB / MySQL:
 
 ```sql
 CREATE DATABASE auction_lab
@@ -296,61 +296,121 @@ GRANT ALL PRIVILEGES ON auction_lab.*
 FLUSH PRIVILEGES;
 ```
 
+Значения `auction_app`, `change_me` и `auction_lab` можно заменить на собственные. Эти же параметры потребуются при настройке приложения.
+
 ## Установка
+
+Клонируйте репозиторий и перейдите в каталог проекта:
 
 ```bash
 git clone https://github.com/ShestakovDaniil/auction.git
 cd auction
+```
+
+Создайте виртуальное окружение:
+
+```bash
 python3 -m venv .venv
+```
+
+Активируйте его.
+
+Linux / macOS:
+
+```bash
 source .venv/bin/activate
-pip install -r requirements.txt
 ```
 
 Windows PowerShell:
 
 ```powershell
-.venv\Scripts\activate
-pip install -r requirements.txt
+.venv\Scripts\Activate.ps1
+```
+
+Установите зависимости:
+
+```bash
+python -m pip install -r requirements.txt
 ```
 
 ## Конфигурация
 
-Создайте локальный `.env` и укажите параметры окружения:
+Создайте локальную конфигурацию приложения:
 
-```env
-APP_NAME=Auction Lab
-APP_ENV=development
-APP_HOST=127.0.0.1
-APP_PORT=8000
-
-DATABASE_URL=mysql+pymysql://auction_app:change_me@127.0.0.1:3306/auction_lab?charset=utf8mb4
-APP_SECRET_KEY=replace-with-a-unique-random-secret-at-least-32-characters
-
-AUTO_CREATE_TABLES=true
-ACCESS_TOKEN_EXPIRE_MINUTES=480
-COOKIE_SECURE=false
-MIN_BID_INCREMENT=1.00
-CATALOG_PAGE_SIZE=9
-ALLOWED_HOSTS=127.0.0.1,localhost
+```bash
+python -m scripts.setup_env
 ```
+
+Скрипт автоматически создаст файл `.env` в корне проекта, сгенерирует безопасный `APP_SECRET_KEY` и заполнит остальные параметры значениями по умолчанию.
+
+Во время настройки потребуется указать только параметры подключения к MariaDB / MySQL:
+
+- пользователь БД — по умолчанию `auction_app`;
+- пароль пользователя БД;
+- хост — по умолчанию `127.0.0.1`;
+- порт — по умолчанию `3306`;
+- имя базы данных — по умолчанию `auction_lab`.
+
+Если оставить значение пустым и нажать Enter, будет использовано значение по умолчанию.
+
+Пример:
+
+```text
+Настройка Auction Lab
+
+Пользователь MariaDB [auction_app]:
+Пароль MariaDB: ********
+Хост MariaDB [127.0.0.1]:
+Порт MariaDB [3306]:
+Название базы [auction_lab]:
+
+.env создан.
+APP_SECRET_KEY сгенерирован автоматически.
+```
+
+Файл `.env` содержит секретные данные и не должен попадать в Git. Он исключён через `.gitignore`.
 
 ## Проверка подключения к БД
 
+После создания `.env` проверьте соединение с MariaDB / MySQL:
+
 ```bash
-python scripts/check_db.py
+python -m scripts.check_db
 ```
 
-При успешном подключении будет выведена версия MariaDB/MySQL.
+При успешном подключении будет выведена версия сервера MariaDB / MySQL.
+
+Если подключение не удалось, проверьте логин, пароль, имя базы данных, адрес сервера и права пользователя БД.
 
 ## Запуск
+
+Запустите приложение из корня проекта:
 
 ```bash
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-После запуска:
+После запуска доступны:
 
-- приложение: `http://127.0.0.1:8000/`
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- OpenAPI: `http://127.0.0.1:8000/openapi.json`
-- health-check: `http://127.0.0.1:8000/health`
+- приложение: `http://127.0.0.1:8000/`;
+- Swagger UI: `http://127.0.0.1:8000/docs`;
+- OpenAPI: `http://127.0.0.1:8000/openapi.json`;
+- health-check: `http://127.0.0.1:8000/health`.
+
+Для остановки сервера используйте `Ctrl+C`.
+
+При повторном запуске проекта достаточно активировать виртуальное окружение и запустить Uvicorn повторно:
+
+Linux / macOS:
+
+```bash
+source .venv/bin/activate
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
