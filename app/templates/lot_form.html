@@ -10,6 +10,7 @@
     </div>
     <div class="form-card">
         <form action="/lots/create" method="post" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>Название лота
                 <input type="text" name="title" minlength="2" maxlength="200" required autofocus placeholder="Например: Механическая клавиатура">
             </label>

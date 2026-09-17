@@ -24,7 +24,10 @@
                     <a href="/lots/new" class="nav-link">Создать лот</a>
                 {% endif %}
                 <a href="/dashboard" class="nav-link nav-account">{{ current_user.username }}</a>
-                <a href="/logout" class="button button-ghost button-small">Выйти</a>
+                <form action="/logout" method="post" class="logout-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button button-ghost button-small">Выйти</button>
+                </form>
             {% else %}
                 <a href="/login" class="nav-link">Войти</a>
                 <a href="/register" class="button button-primary button-small">Регистрация</a>
@@ -44,7 +47,7 @@
     <div class="container footer-shell">
         <div>
             <strong>Auction Lab</strong>
-            <p>Учебная информационная система электронных торгов.</p>
+            <p>Информационная система электронных торгов.</p>
         </div>
         <span>MariaDB / MySQL · FastAPI · SQLAlchemy</span>
     </div>

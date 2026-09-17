@@ -11,6 +11,7 @@
         <h2>Регистрация</h2>
         {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
         <form action="/register" method="post" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>Логин
                 <input type="text" name="username" minlength="3" maxlength="50" value="{{ form_data.username if form_data else '' }}" autocomplete="username" required>
             </label>
@@ -18,8 +19,8 @@
                 <input type="email" name="email" value="{{ form_data.email if form_data else '' }}" autocomplete="email" required>
             </label>
             <label>Пароль
-                <input type="password" name="password" minlength="6" autocomplete="new-password" required>
-                <small>Минимум 6 символов.</small>
+                <input type="password" name="password" minlength="8" autocomplete="new-password" required>
+                <small>Минимум 8 символов.</small>
             </label>
             <fieldset class="role-picker">
                 <legend>Роль</legend>

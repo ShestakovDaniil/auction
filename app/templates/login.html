@@ -17,6 +17,7 @@
         <p class="muted">Можно использовать логин или email.</p>
         {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
         <form action="/login" method="post" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="next" value="{{ next_url }}">
             <label>Логин или email
                 <input type="text" name="identity" value="{{ identity or '' }}" autocomplete="username" required autofocus>

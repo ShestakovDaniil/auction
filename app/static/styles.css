@@ -284,3 +284,5 @@ label small { display: block; margin-top: 6px; color: var(--muted); font-weight:
     .page-numbers { order: 3; width: 100%; justify-content: center; }
     .footer-shell { padding: 24px 0; }
 }
+
+.logout-form { margin: 0; display: inline-flex; }

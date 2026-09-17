@@ -1,42 +1,27 @@
 # HTTP API
 
-Интерактивная документация после запуска: `/docs`.
+Интерактивная документация доступна после запуска приложения по адресу `/docs`.
 
-## Системные
+Все API-маршруты, кроме `POST /api/users`, требуют действующую `HttpOnly` auth-cookie `access_token`.
+Изменяющие авторизованные запросы дополнительно требуют заголовок `X-CSRF-Token` со значением cookie `csrf_token`.
 
-| Метод | URL | Назначение |
-|---|---|---|
-| GET | `/health` | Проверка подключения к MariaDB/MySQL |
+| Метод | URL | Доступ | Назначение |
+|---|---|---|---|
+| GET | `/health` | публичный | Проверка приложения и соединения с БД |
+| POST | `/api/users` | публичный | Регистрация buyer/seller |
+| GET | `/api/users/me` | авторизованный | Текущий пользователь |
+| POST | `/api/lots` | seller/admin | Создать лот |
+| GET | `/api/lots/{lot_id}` | авторизованный | Получить доступный пользователю лот |
+| GET | `/api/lots/{lot_id}/bids` | owner/admin/participant | История ставок лота |
+| GET | `/api/auctions` | авторизованный | Список аукционов |
+| GET | `/api/auctions/{auction_id}` | авторизованный | Получить аукцион |
+| POST | `/api/auctions` | owner/admin | Создать аукцион для собственного лота |
+| POST | `/api/auctions/{auction_id}/close` | owner/admin | Завершить аукцион |
+| POST | `/api/auctions/{auction_id}/bids` | buyer/admin | Сделать ставку |
+| GET | `/api/reports/summary` | admin | Сводные счётчики системы |
 
-## Пользователь
+Для POST API после входа передавайте:
 
-| Метод | URL | Назначение |
-|---|---|---|
-| POST | `/api/users` | Регистрация пользователя через JSON API |
-| GET | `/api/users/me` | Текущий пользователь по auth-cookie |
-
-## Лоты
-
-| Метод | URL | Назначение |
-|---|---|---|
-| POST | `/api/lots` | Создать лот текущим продавцом |
-| GET | `/api/lots/{lot_id}` | Получить лот |
-| GET | `/api/lots/{lot_id}/bids` | История ставок по аукционам лота |
-| POST | `/api/lots/auctions/{auction_id}/bids` | Сделать ставку текущим покупателем |
-
-## Аукционы
-
-| Метод | URL | Назначение |
-|---|---|---|
-| GET | `/api/auctions` | Список аукционов |
-| GET | `/api/auctions/{auction_id}` | Аукцион |
-| POST | `/api/auctions` | Запустить аукцион для своего лота |
-| POST | `/api/auctions/{auction_id}/close` | Завершить свой аукцион |
-
-## Отчёт
-
-| Метод | URL | Назначение |
-|---|---|---|
-| GET | `/api/reports/summary` | Количество пользователей, лотов, аукционов и ставок |
-
-Авторизованные API-маршруты используют ту же HttpOnly JWT-cookie, что и веб-интерфейс.
+```text
+X-CSRF-Token: <значение cookie csrf_token>
+```

@@ -9,19 +9,15 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = 8000
 
-    # MariaDB/MySQL only. Example:
-    # mysql+pymysql://auction_app:change_me@127.0.0.1:3306/auction_lab?charset=utf8mb4
-    database_url: str = (
-        "mysql+pymysql://auction_app:change_me@127.0.0.1:3306/auction_lab?charset=utf8mb4"
-    )
+    database_url: str
     auto_create_tables: bool = True
 
-    # Change this in .env before deployment.
-    app_secret_key: str = "change-this-secret-in-env"
-    access_token_expire_minutes: int = 60 * 24
+    app_secret_key: str
+    access_token_expire_minutes: int = 60 * 8
     cookie_secure: bool = False
     min_bid_increment: float = 1.0
     catalog_page_size: int = 9
+    allowed_hosts: str = "127.0.0.1,localhost"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -29,6 +25,10 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        return [host.strip() for host in self.allowed_hosts.split(",") if host.strip()]
 
 
 @lru_cache
@@ -39,4 +39,8 @@ def get_settings() -> Settings:
             "DATABASE_URL должен использовать MariaDB/MySQL через PyMySQL "
             "(mysql+pymysql://... или mariadb+pymysql://...)."
         )
+    if len(settings.app_secret_key) < 32 or settings.app_secret_key == "change-this-secret-in-env":
+        raise RuntimeError("APP_SECRET_KEY должен содержать минимум 32 символа и быть уникальным.")
+    if settings.app_env.lower() not in {"development", "dev", "local", "test"} and not settings.cookie_secure:
+        raise RuntimeError("Для production COOKIE_SECURE должен быть true.")
     return settings

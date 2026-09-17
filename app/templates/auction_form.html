@@ -11,6 +11,7 @@
     <div class="form-card">
         {% if lots %}
         <form action="/auctions/create" method="post" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>Лот
                 <select name="lot_id" required>
                     {% for lot in lots %}<option value="{{ lot.id }}" {% if lot.id == selected_lot_id %}selected{% endif %}>#{{ lot.id }} — {{ lot.title }} · {{ lot.start_price|money }} ₽</option>{% endfor %}
