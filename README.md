@@ -277,7 +277,7 @@ FLUSH PRIVILEGES;
 Клонируйте репозиторий и перейдите в каталог проекта:
 
 ```bash
-git clone https://github.com/ShestakovDaniil/auction.git
+git clone --branch develop --single-branch https://github.com/ShestakovDaniil/auction.git
 cd auction
 ```
 
