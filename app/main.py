@@ -12,7 +12,6 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.auth import decode_user_id
 from app.config import get_settings
-from app.db import Base, get_engine
 from app.http import template_context, templates
 from app.routers import ALL_ROUTERS
 from app.security import CSRF_COOKIE_NAME
@@ -23,7 +22,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     if settings.auto_create_tables:
-        Base.metadata.create_all(bind=get_engine())
+        raise RuntimeError("AUTO_CREATE_TABLES запрещён: используйте make migrate")
     yield
 
 

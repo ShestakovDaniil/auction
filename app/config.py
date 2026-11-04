@@ -1,5 +1,7 @@
+from decimal import Decimal
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,12 +12,12 @@ class Settings(BaseSettings):
     app_port: int = 8000
 
     database_url: str
-    auto_create_tables: bool = True
+    auto_create_tables: bool = False
 
     app_secret_key: str
     access_token_expire_minutes: int = 60 * 8
     cookie_secure: bool = False
-    min_bid_increment: float = 1.0
+    min_bid_increment: Decimal = Field(default=Decimal("1.00"), ge=Decimal("0.01"), decimal_places=2)
     catalog_page_size: int = 9
     allowed_hosts: str = "127.0.0.1,localhost"
 

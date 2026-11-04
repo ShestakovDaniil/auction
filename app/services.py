@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.access import get_owned_lot
 from app.auth import hash_password
 from app.config import get_settings
-from app.models import Auction, AuctionStatus, Bid, Lot, LotStatus, User, UserRole
+from app.models import Auction, AuctionStatus, Bid, FavoriteLot, Lot, LotStatus, User, UserRole
 from app.schemas import AuctionCreate, BidCreate, LotCreate, UserCreate
+from app.domain import minimum_allowed_bid
 
 settings = get_settings()
 MONEY = Decimal("0.01")
@@ -148,7 +149,7 @@ def synchronize_auction_statuses(db: Session) -> int:
 def minimum_bid_for_auction(db: Session, auction: Auction) -> Decimal:
     bid_count = db.scalar(select(func.count(Bid.id)).where(Bid.auction_id == auction.id)) or 0
     current = as_money(auction.current_price)
-    return current if bid_count == 0 else current + as_money(settings.min_bid_increment)
+    return minimum_allowed_bid(current, as_money(settings.min_bid_increment), None if bid_count == 0 else current)
 
 
 def place_bid(db: Session, buyer: User, auction_id: int, data: BidCreate) -> Bid:
@@ -217,3 +218,39 @@ def close_auction(db: Session, owner: User, auction_id: int) -> Auction:
     db.commit()
     db.refresh(auction)
     return auction
+
+
+def add_favorite(db: Session, user: User, lot_id: int) -> FavoriteLot:
+    """Save a visible lot; duplicates are idempotent and don't create extra rows."""
+    from app.access import get_visible_lot
+
+    get_visible_lot(db, user, lot_id)
+    favorite = db.scalar(select(FavoriteLot).where(FavoriteLot.user_id == user.id, FavoriteLot.lot_id == lot_id))
+    if favorite is not None:
+        return favorite
+    favorite = FavoriteLot(user_id=user.id, lot_id=lot_id)
+    db.add(favorite)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        favorite = db.scalar(select(FavoriteLot).where(FavoriteLot.user_id == user.id, FavoriteLot.lot_id == lot_id))
+        if favorite is None:
+            raise
+    db.refresh(favorite)
+    return favorite
+
+
+def remove_favorite(db: Session, user: User, lot_id: int) -> None:
+    favorite = db.scalar(select(FavoriteLot).where(FavoriteLot.user_id == user.id, FavoriteLot.lot_id == lot_id))
+    if favorite is not None:
+        db.delete(favorite)
+        db.commit()
+
+
+def list_favorites(db: Session, user: User) -> list[Lot]:
+    return list(db.scalars(
+        select(Lot).join(FavoriteLot).where(FavoriteLot.user_id == user.id).where(
+            or_(Lot.status != LotStatus.DRAFT, Lot.seller_id == user.id, user.role == UserRole.ADMIN)
+        ).order_by(FavoriteLot.created_at.desc(), FavoriteLot.id.desc())
+    ).all())

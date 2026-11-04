@@ -6,3 +6,12 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+.pytest_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+reports/
+backups/
+*.db
+*.sqlite
+*.sqlite3

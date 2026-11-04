@@ -25,3 +25,14 @@
 ```text
 X-CSRF-Token: <значение cookie csrf_token>
 ```
+
+## Новые маршруты лабораторной работы №3: избранное
+
+| Метод | URL | Авторизация | Ответ |
+| --- | --- | --- | --- |
+| `PUT` | `/api/lots/{lot_id}/favorite` | cookie + `X-CSRF-Token` | `{"lot_id": 1, "saved": true}` |
+| `DELETE` | `/api/lots/{lot_id}/favorite` | cookie + `X-CSRF-Token` | `204 No Content` |
+| `GET` | `/api/users/me/favorites` | cookie | Список `LotRead` текущего пользователя |
+
+Добавление и удаление идемпотентны. Недоступные для пользователя черновики нельзя добавить
+в избранное. Хранилище — таблица `favorite_lots` с UNIQUE-парой пользователя и лота.

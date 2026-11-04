@@ -1,0 +1,27 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["mariadb: requires an isolated live MariaDB test database"]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["app/templates/*", "app/static/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 40
+
+[tool.ruff]
+line-length = 160
+target-version = "py311"
+exclude = [".venv", "backups", "reports"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+# Security-specific checks are performed by Bandit on all application/scripts.
+
+[tool.bandit]
+# Security exceptions require a documented justification and review.
+exclude_dirs = ["tests", ".venv"]
