@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -38,6 +38,7 @@ class User(Base):
 
     lots: Mapped[list["Lot"]] = relationship("Lot", back_populates="seller", cascade="all, delete-orphan")
     bids: Mapped[list["Bid"]] = relationship("Bid", back_populates="buyer", cascade="all, delete-orphan")
+    favorites: Mapped[list["FavoriteLot"]] = relationship("FavoriteLot", back_populates="user", cascade="all, delete-orphan")
 
 
 class Lot(Base):
@@ -47,12 +48,14 @@ class Lot(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    condition: Mapped[str] = mapped_column(String(16), nullable=False, server_default="used")
     start_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     seller_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     status: Mapped[LotStatus] = mapped_column(SQLEnum(LotStatus, name="lot_status"), default=LotStatus.DRAFT, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
 
     seller: Mapped[User] = relationship("User", back_populates="lots")
+    favorited_by: Mapped[list["FavoriteLot"]] = relationship("FavoriteLot", back_populates="lot", cascade="all, delete-orphan")
     auctions: Mapped[list["Auction"]] = relationship(
         "Auction", back_populates="lot", cascade="all, delete-orphan", order_by="desc(Auction.start_time)"
     )
@@ -92,3 +95,18 @@ class Bid(Base):
 
 
 Sale = Bid
+
+
+class FavoriteLot(Base):
+    """User's saved lot; private to the authenticated user."""
+
+    __tablename__ = "favorite_lots"
+    __table_args__ = (UniqueConstraint("user_id", "lot_id", name="uq_favorite_lots_user_lot"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    lot_id: Mapped[int] = mapped_column(ForeignKey("lots.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+    user: Mapped[User] = relationship("User", back_populates="favorites")
+    lot: Mapped[Lot] = relationship("Lot", back_populates="favorited_by")

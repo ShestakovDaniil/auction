@@ -16,6 +16,8 @@ class UserCreate(BaseModel):
     @classmethod
     def clean_username(cls, value: str) -> str:
         value = value.strip()
+        if len(value) < 3:
+            raise ValueError("Логин должен содержать не менее 3 символов")
         if any(ord(ch) < 32 for ch in value):
             raise ValueError("Логин содержит недопустимые символы")
         return value
@@ -49,6 +51,7 @@ class LotRead(BaseModel):
     id: int
     title: str
     description: str | None
+    condition: str
     start_price: Decimal
     seller_id: int
     status: LotStatus
