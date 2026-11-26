@@ -1,0 +1,14 @@
+/.github/ @REVIEWER
+/.ci/ @REVIEWER
+/Jenkinsfile @REVIEWER
+/Makefile @REVIEWER
+/tests/ @REVIEWER
+/scripts/ @REVIEWER
+/pyproject.toml @REVIEWER
+/requirements*.txt @REVIEWER
+/.gitignore @REVIEWER
+/.dockerignore @REVIEWER
+/Dockerfile @REVIEWER
+/compose.yaml @REVIEWER
+/alembic.ini @REVIEWER
+/alembic/ @REVIEWER

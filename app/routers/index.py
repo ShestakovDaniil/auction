@@ -38,9 +38,11 @@ def index(
         query = query.filter(or_(Lot.title.ilike(pattern), Lot.description.ilike(pattern), User.username.ilike(pattern)))
     if status_filter != "all":
         query = query.filter(Auction.status == AuctionStatus(status_filter))
-    query = query.order_by(
-        Auction.end_time.is_(None), Auction.end_time.asc(), Auction.id.desc()
-    ) if status_filter == "active" else query.order_by(Auction.start_time.desc(), Auction.id.desc())
+    query = (
+        query.order_by(Auction.end_time.is_(None), Auction.end_time.asc(), Auction.id.desc())
+        if status_filter == "active"
+        else query.order_by(Auction.start_time.desc(), Auction.id.desc())
+    )
 
     total = query.count()
     page_size = max(1, min(settings.catalog_page_size, 30))
@@ -59,8 +61,16 @@ def index(
         request=request,
         name="index.html",
         context=template_context(
-            request, current_user, auctions=auctions, q=clean_q, status_filter=status_filter,
-            page=page, total=total, total_pages=total_pages, active_count=active_count,
-            seller_count=seller_count, bids_count=bids_count,
+            request,
+            current_user,
+            auctions=auctions,
+            q=clean_q,
+            status_filter=status_filter,
+            page=page,
+            total=total,
+            total_pages=total_pages,
+            active_count=active_count,
+            seller_count=seller_count,
+            bids_count=bids_count,
         ),
     )

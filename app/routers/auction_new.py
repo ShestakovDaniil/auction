@@ -27,7 +27,14 @@ def new_auction_page(
     default_start = datetime.now().replace(second=0, microsecond=0)
     default_end = default_start + timedelta(days=1)
     return templates.TemplateResponse(
-        request=request, name="auction_form.html",
-        context=template_context(request, current_user, lots=eligible_lots, selected_lot_id=selected_lot_id,
-            default_start=default_start.strftime("%Y-%m-%dT%H:%M"), default_end=default_end.strftime("%Y-%m-%dT%H:%M")),
+        request=request,
+        name="auction_form.html",
+        context=template_context(
+            request,
+            current_user,
+            lots=eligible_lots,
+            selected_lot_id=selected_lot_id,
+            default_start=default_start.strftime("%Y-%m-%dT%H:%M"),
+            default_end=default_end.strftime("%Y-%m-%dT%H:%M"),
+        ),
     )

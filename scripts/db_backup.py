@@ -2,6 +2,7 @@
 
 Credentials are placed in a private, short-lived option file, never in process args.
 """
+
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -36,9 +37,10 @@ def connection_options(url: str):
     parsed = parse_db(url)
     with tempfile.TemporaryDirectory(prefix="auction-db-") as tmp:
         path = Path(tmp) / "client.cnf"
+
         # MySQL config option-file values are double-quoted, with escaped slashes and quotes.
         def quote(value):
-            return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+            return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
         path.write_text(
             "[client]\n"
@@ -68,7 +70,16 @@ def backup_database(url: str, destination: Path | None = None) -> Path:
         if dest.exists():
             raise FileExistsError(f"Резервная копия уже существует: {dest}")
         client = locate_client("mariadb-dump", "mysqldump")
-        cmd = [client, f"--defaults-extra-file={optfile}", "--single-transaction", "--quick", "--routines", "--triggers", "--default-character-set=utf8mb4", parsed.database]
+        cmd = [
+            client,
+            f"--defaults-extra-file={optfile}",
+            "--single-transaction",
+            "--quick",
+            "--routines",
+            "--triggers",
+            "--default-character-set=utf8mb4",
+            parsed.database,
+        ]
         try:
             # Capture stderr without logging secrets or full SQL data.
             with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
@@ -93,7 +104,9 @@ def restore_database(url: str, source: Path, confirmation: str) -> None:
             raise ValueError("BACKUP_FILE должен указывать на существующий файл .sql.gz")
         client = locate_client("mariadb", "mysql")
         with gzip.open(source, "rb") as data:
-            with subprocess.Popen([client, f"--defaults-extra-file={optfile}", f"--database={parsed.database}"], stdin=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+            with subprocess.Popen(
+                [client, f"--defaults-extra-file={optfile}", f"--database={parsed.database}"], stdin=subprocess.PIPE, stderr=subprocess.PIPE
+            ) as process:
                 try:
                     shutil.copyfileobj(data, process.stdin)
                     process.stdin.close()

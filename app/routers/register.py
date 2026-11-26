@@ -41,12 +41,16 @@ def register_user(
         if isinstance(exc, ValueError) and not isinstance(exc, ValidationError):
             error = "Некорректная роль"
         return templates.TemplateResponse(
-            request=request, name="register.html", status_code=400,
+            request=request,
+            name="register.html",
+            status_code=400,
             context=template_context(request, error=error, form_data=form_data),
         )
     except HTTPException as exc:
         return templates.TemplateResponse(
-            request=request, name="register.html", status_code=exc.status_code,
+            request=request,
+            name="register.html",
+            status_code=exc.status_code,
             context=template_context(request, error=str(exc.detail), form_data=form_data),
         )
     return redirect_with_message("/login", "Аккаунт создан. Теперь войдите в систему.")

@@ -48,7 +48,9 @@ def login_user(
     if not user or not password_ok:
         login_rate_limiter.register_failure(key)
         return templates.TemplateResponse(
-            request=request, name="login.html", status_code=400,
+            request=request,
+            name="login.html",
+            status_code=400,
             context=template_context(request, error="Неверный логин/email или пароль", identity=clean_identity, next_url=safe_local_url(next)),
         )
     login_rate_limiter.clear(key)
@@ -58,8 +60,12 @@ def login_user(
 
     response = RedirectResponse(url=safe_local_url(next), status_code=303)
     response.set_cookie(
-        key="access_token", value=create_access_token(user), httponly=True,
-        secure=settings.cookie_secure, samesite="strict",
-        max_age=settings.access_token_expire_minutes * 60, path="/",
+        key="access_token",
+        value=create_access_token(user),
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="strict",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
     )
     return response

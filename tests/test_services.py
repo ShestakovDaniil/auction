@@ -9,8 +9,17 @@ from sqlalchemy.exc import IntegrityError
 from app.models import AuctionStatus, Bid, FavoriteLot, LotStatus, UserRole
 from app.schemas import AuctionCreate, BidCreate, LotCreate, UserCreate
 from app.services import (
-    add_favorite, close_auction, create_auction, create_lot, create_user, highest_bid,
-    list_favorites, minimum_bid_for_auction, place_bid, remove_favorite, synchronize_auction_statuses,
+    add_favorite,
+    close_auction,
+    create_auction,
+    create_lot,
+    create_user,
+    highest_bid,
+    list_favorites,
+    minimum_bid_for_auction,
+    place_bid,
+    remove_favorite,
+    synchronize_auction_statuses,
 )
 
 
@@ -26,9 +35,9 @@ def lot_for(db, user, price="100"):
 
 def auction_for(db, seller, lot, *, start_offset=-60, end_offset=3600):
     now = datetime.now()
-    return create_auction(db, seller, AuctionCreate(
-        lot_id=lot.id, start_time=now + timedelta(seconds=start_offset), end_time=now + timedelta(seconds=end_offset)
-    ))
+    return create_auction(
+        db, seller, AuctionCreate(lot_id=lot.id, start_time=now + timedelta(seconds=start_offset), end_time=now + timedelta(seconds=end_offset))
+    )
 
 
 def test_public_registration_rejects_admin_and_duplicate(db):
@@ -137,10 +146,12 @@ def test_highest_bid_tie_breaks_by_timestamp_then_id(db, actors):
     seller, buyer, _, admin = actors
     auction = auction_for(db, seller, lot_for(db, seller))
     moment = datetime.now()
-    db.add_all([
-        Bid(auction_id=auction.id, buyer_id=buyer.id, amount="100", created_at=moment),
-        Bid(auction_id=auction.id, buyer_id=admin.id, amount="100", created_at=moment - timedelta(seconds=1)),
-        Bid(auction_id=auction.id, buyer_id=buyer.id, amount="99", created_at=moment),
-    ])
+    db.add_all(
+        [
+            Bid(auction_id=auction.id, buyer_id=buyer.id, amount="100", created_at=moment),
+            Bid(auction_id=auction.id, buyer_id=admin.id, amount="100", created_at=moment - timedelta(seconds=1)),
+            Bid(auction_id=auction.id, buyer_id=buyer.id, amount="99", created_at=moment),
+        ]
+    )
     db.commit()
     assert highest_bid(db, auction.id).buyer_id == admin.id

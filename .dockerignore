@@ -1,0 +1,14 @@
+.env
+.env.*
+backups/
+reports/
+.git
+.github/
+.ci/
+tests/
+.venv/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage*
+sast_report.html

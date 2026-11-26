@@ -1,4 +1,5 @@
 """Fail if deployment is missing Alembic revisions."""
+
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine
