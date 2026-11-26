@@ -49,6 +49,8 @@ def test_compose_rejects_database_port():
 
 
 def test_example_secrets_are_not_accepted(monkeypatch, tmp_path: Path):
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    monkeypatch.delenv("APP_SECRET_KEY", raising=False)
     template = container_check.ROOT / ".env.container.example"
     file = tmp_path / ".env.container"
     file.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
