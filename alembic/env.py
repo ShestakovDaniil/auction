@@ -1,4 +1,5 @@
 """Alembic environment; requires a database URL from the environment or config."""
+
 from logging.config import fileConfig
 import os
 

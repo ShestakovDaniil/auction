@@ -37,10 +37,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     settings = Settings()
     if not settings.database_url.startswith(("mysql+pymysql://", "mariadb+pymysql://")):
-        raise RuntimeError(
-            "DATABASE_URL должен использовать MariaDB/MySQL через PyMySQL "
-            "(mysql+pymysql://... или mariadb+pymysql://...)."
-        )
+        raise RuntimeError("DATABASE_URL должен использовать MariaDB/MySQL через PyMySQL (mysql+pymysql://... или mariadb+pymysql://...).")
     if len(settings.app_secret_key) < 32 or settings.app_secret_key == "change-this-secret-in-env":
         raise RuntimeError("APP_SECRET_KEY должен содержать минимум 32 символа и быть уникальным.")
     if settings.app_env.lower() not in {"development", "dev", "local", "test"} and not settings.cookie_secure:

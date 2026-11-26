@@ -135,4 +135,5 @@ def require_roles(*roles: UserRole):
         if user.role not in set(roles):
             raise HTTPException(status_code=403, detail="Недостаточно прав для выполнения операции")
         return user
+
     return dependency

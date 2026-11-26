@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "lab5-demo-secret"
+description = "Lab 5 test credential marker"
+regex = '''LAB5_CI_DEMO_[A-Z0-9]{24}'''

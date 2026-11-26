@@ -26,9 +26,23 @@ def dashboard(
 
     buyer_bids = []
     if current_user.role in {UserRole.BUYER, UserRole.ADMIN}:
-        buyer_bids = db.query(Bid).options(joinedload(Bid.auction).joinedload(Auction.lot)).filter(Bid.buyer_id == current_user.id).order_by(Bid.created_at.desc()).limit(25).all()
+        buyer_bids = (
+            db.query(Bid)
+            .options(joinedload(Bid.auction).joinedload(Auction.lot))
+            .filter(Bid.buyer_id == current_user.id)
+            .order_by(Bid.created_at.desc())
+            .limit(25)
+            .all()
+        )
 
-    available_auctions = db.query(Auction).options(joinedload(Auction.lot).joinedload(Lot.seller)).filter(Auction.status == AuctionStatus.ACTIVE).order_by(Auction.end_time.is_(None), Auction.end_time.asc()).limit(6).all()
+    available_auctions = (
+        db.query(Auction)
+        .options(joinedload(Auction.lot).joinedload(Lot.seller))
+        .filter(Auction.status == AuctionStatus.ACTIVE)
+        .order_by(Auction.end_time.is_(None), Auction.end_time.asc())
+        .limit(6)
+        .all()
+    )
     available_auctions = [auction for auction in available_auctions if auction.lot.seller_id != current_user.id]
 
     won_count = 0
@@ -37,6 +51,9 @@ def dashboard(
         won_count = sum(1 for auction in closed if (winner := highest_bid(db, auction.id)) is not None and winner.buyer_id == current_user.id)
 
     return templates.TemplateResponse(
-        request=request, name="dashboard.html",
-        context=template_context(request, current_user, seller_rows=seller_rows, buyer_bids=buyer_bids, available_auctions=available_auctions, won_count=won_count),
+        request=request,
+        name="dashboard.html",
+        context=template_context(
+            request, current_user, seller_rows=seller_rows, buyer_bids=buyer_bids, available_auctions=available_auctions, won_count=won_count
+        ),
     )

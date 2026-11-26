@@ -105,19 +105,16 @@ def create_auction(db: Session, owner: User, data: AuctionCreate) -> Auction:
 
 
 def highest_bid(db: Session, auction_id: int) -> Bid | None:
-    return db.scalar(
-        select(Bid)
-        .where(Bid.auction_id == auction_id)
-        .order_by(Bid.amount.desc(), Bid.created_at.asc(), Bid.id.asc())
-        .limit(1)
-    )
+    return db.scalar(select(Bid).where(Bid.auction_id == auction_id).order_by(Bid.amount.desc(), Bid.created_at.asc(), Bid.id.asc()).limit(1))
 
 
 def synchronize_auction_statuses(db: Session) -> int:
     now = datetime.now()
     changed = 0
     pending = db.scalars(
-        select(Auction).options(joinedload(Auction.lot)).where(
+        select(Auction)
+        .options(joinedload(Auction.lot))
+        .where(
             Auction.status == AuctionStatus.PENDING,
             Auction.start_time <= now,
         )
@@ -131,7 +128,9 @@ def synchronize_auction_statuses(db: Session) -> int:
         changed += 1
 
     expired = db.scalars(
-        select(Auction).options(joinedload(Auction.lot)).where(
+        select(Auction)
+        .options(joinedload(Auction.lot))
+        .where(
             Auction.status == AuctionStatus.ACTIVE,
             Auction.end_time.is_not(None),
             Auction.end_time <= now,
@@ -156,12 +155,7 @@ def place_bid(db: Session, buyer: User, auction_id: int, data: BidCreate) -> Bid
     if buyer.role not in {UserRole.BUYER, UserRole.ADMIN}:
         raise HTTPException(status_code=403, detail="Ставки доступны покупателям")
 
-    auction = db.scalar(
-        select(Auction)
-        .options(joinedload(Auction.lot))
-        .where(Auction.id == auction_id)
-        .with_for_update()
-    )
+    auction = db.scalar(select(Auction).options(joinedload(Auction.lot)).where(Auction.id == auction_id).with_for_update())
     if not auction:
         db.rollback()
         raise HTTPException(status_code=404, detail="Аукцион не найден")
@@ -196,12 +190,7 @@ def place_bid(db: Session, buyer: User, auction_id: int, data: BidCreate) -> Bid
 
 
 def close_auction(db: Session, owner: User, auction_id: int) -> Auction:
-    auction = db.scalar(
-        select(Auction)
-        .options(joinedload(Auction.lot))
-        .where(Auction.id == auction_id)
-        .with_for_update()
-    )
+    auction = db.scalar(select(Auction).options(joinedload(Auction.lot)).where(Auction.id == auction_id).with_for_update())
     if not auction:
         db.rollback()
         raise HTTPException(status_code=404, detail="Аукцион не найден")
@@ -249,8 +238,12 @@ def remove_favorite(db: Session, user: User, lot_id: int) -> None:
 
 
 def list_favorites(db: Session, user: User) -> list[Lot]:
-    return list(db.scalars(
-        select(Lot).join(FavoriteLot).where(FavoriteLot.user_id == user.id).where(
-            or_(Lot.status != LotStatus.DRAFT, Lot.seller_id == user.id, user.role == UserRole.ADMIN)
-        ).order_by(FavoriteLot.created_at.desc(), FavoriteLot.id.desc())
-    ).all())
+    return list(
+        db.scalars(
+            select(Lot)
+            .join(FavoriteLot)
+            .where(FavoriteLot.user_id == user.id)
+            .where(or_(Lot.status != LotStatus.DRAFT, Lot.seller_id == user.id, user.role == UserRole.ADMIN))
+            .order_by(FavoriteLot.created_at.desc(), FavoriteLot.id.desc())
+        ).all()
+    )

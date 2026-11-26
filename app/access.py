@@ -27,11 +27,7 @@ def get_owned_lot(db: Session, user: User, lot_id: int, *, lock: bool = False) -
 
 
 def get_visible_auction(db: Session, user: User, auction_id: int) -> Auction:
-    auction = db.scalar(
-        select(Auction)
-        .options(joinedload(Auction.lot).joinedload(Lot.seller))
-        .where(Auction.id == auction_id)
-    )
+    auction = db.scalar(select(Auction).options(joinedload(Auction.lot).joinedload(Lot.seller)).where(Auction.id == auction_id))
     if not auction:
         raise HTTPException(status_code=404, detail="Аукцион не найден")
     if auction.lot.status == LotStatus.DRAFT and auction.lot.seller_id != user.id and user.role != UserRole.ADMIN:
@@ -43,6 +39,4 @@ def can_view_bid_history(db: Session, user: User, lot: Lot) -> bool:
     if user.role == UserRole.ADMIN or lot.seller_id == user.id:
         return True
     auction_ids = select(Auction.id).where(Auction.lot_id == lot.id)
-    return db.scalar(
-        select(Bid.id).where(Bid.auction_id.in_(auction_ids), Bid.buyer_id == user.id).limit(1)
-    ) is not None
+    return db.scalar(select(Bid.id).where(Bid.auction_id.in_(auction_ids), Bid.buyer_id == user.id).limit(1)) is not None

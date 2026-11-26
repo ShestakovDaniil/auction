@@ -1,4 +1,5 @@
 """Real MariaDB tests: test DB must be disposable and end with '_test'."""
+
 import os
 from pathlib import Path
 
@@ -69,7 +70,9 @@ def test_mariadb_legacy_upgrade_and_restore(empty_test_db, tmp_path: Path):
     command.upgrade(alembic_config(url), "0001")
     engine = create_engine(url)
     with engine.begin() as conn:
-        conn.execute(text("INSERT INTO users (id, username, email, hashed_password, role, created_at) VALUES (1,'legacy','legacy@example.org','hash','SELLER',NOW())"))
+        conn.execute(
+            text("INSERT INTO users (id, username, email, hashed_password, role, created_at) VALUES (1,'legacy','legacy@example.org','hash','SELLER',NOW())")
+        )
         conn.execute(text("INSERT INTO lots (id, title, start_price, seller_id, status, created_at) VALUES (1,'original',100,1,'DRAFT',NOW())"))
         conn.execute(text("DROP TABLE alembic_version"))
     engine.dispose()
@@ -102,6 +105,7 @@ def test_mariadb_legacy_upgrade_and_restore(empty_test_db, tmp_path: Path):
 
 def test_restore_requires_name_confirmation(empty_test_db, tmp_path: Path):
     from scripts.db_backup import restore_database
+
     with pytest.raises(ValueError, match="CONFIRM_RESTORE"):
         restore_database(empty_test_db, tmp_path / "fake.sql.gz", "wrong")
 
@@ -127,10 +131,9 @@ def test_mariadb_real_business_operations(empty_test_db):
             db.add_all([seller, buyer])
             db.commit()
             lot = create_lot(db, seller, LotCreate(title="InnoDB auction", start_price=Decimal("100.00")))
-            auction = create_auction(db, seller, AuctionCreate(
-                lot_id=lot.id, start_time=datetime.now() - timedelta(minutes=1),
-                end_time=datetime.now() + timedelta(hours=1)
-            ))
+            auction = create_auction(
+                db, seller, AuctionCreate(lot_id=lot.id, start_time=datetime.now() - timedelta(minutes=1), end_time=datetime.now() + timedelta(hours=1))
+            )
             bid1 = place_bid(db, buyer, auction.id, BidCreate(amount=Decimal("100.00")))
             assert bid1.amount == Decimal("100.00")
             with pytest.raises(HTTPException) as below_min:

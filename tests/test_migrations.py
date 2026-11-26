@@ -26,7 +26,11 @@ def test_upgrade_legacy_database_preserves_rows(tmp_path: Path):
     command.upgrade(alembic_config(url), "0001")
     engine = create_engine(url)
     with engine.begin() as conn:
-        conn.execute(text("INSERT INTO users (id, username, email, hashed_password, role, created_at) VALUES (1,'legacy','old@example.org','hashed','SELLER',CURRENT_TIMESTAMP)"))
+        conn.execute(
+            text(
+                "INSERT INTO users (id, username, email, hashed_password, role, created_at) VALUES (1,'legacy','old@example.org','hashed','SELLER',CURRENT_TIMESTAMP)"
+            )
+        )
         conn.execute(text("INSERT INTO lots (id, title, start_price, seller_id, status, created_at) VALUES (1,'pre-existing',10,1,'DRAFT',CURRENT_TIMESTAMP)"))
         conn.execute(text("DROP TABLE alembic_version"))  # old app predates Alembic
     engine.dispose()
@@ -44,6 +48,7 @@ def test_upgrade_legacy_database_preserves_rows(tmp_path: Path):
 
 def test_incomplete_legacy_database_is_not_stamped(tmp_path: Path):
     import pytest
+
     url = f"sqlite:///{tmp_path / 'partial.sqlite'}"
     engine = create_engine(url)
     with engine.begin() as conn:

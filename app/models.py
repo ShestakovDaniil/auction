@@ -56,9 +56,7 @@ class Lot(Base):
 
     seller: Mapped[User] = relationship("User", back_populates="lots")
     favorited_by: Mapped[list["FavoriteLot"]] = relationship("FavoriteLot", back_populates="lot", cascade="all, delete-orphan")
-    auctions: Mapped[list["Auction"]] = relationship(
-        "Auction", back_populates="lot", cascade="all, delete-orphan", order_by="desc(Auction.start_time)"
-    )
+    auctions: Mapped[list["Auction"]] = relationship("Auction", back_populates="lot", cascade="all, delete-orphan", order_by="desc(Auction.start_time)")
 
 
 class Auction(Base):
@@ -73,9 +71,7 @@ class Auction(Base):
     current_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     lot: Mapped[Lot] = relationship("Lot", back_populates="auctions")
-    bids: Mapped[list["Bid"]] = relationship(
-        "Bid", back_populates="auction", cascade="all, delete-orphan", order_by="desc(Bid.created_at)"
-    )
+    bids: Mapped[list["Bid"]] = relationship("Bid", back_populates="auction", cascade="all, delete-orphan", order_by="desc(Bid.created_at)")
 
 
 class Bid(Base):

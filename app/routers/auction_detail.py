@@ -23,13 +23,21 @@ def auction_detail(
 ):
     synchronize_auction_statuses(db)
     auction = get_visible_auction(db, current_user, auction_id)
-    auction = db.query(Auction).options(joinedload(Auction.lot).joinedload(Lot.seller), joinedload(Auction.bids).joinedload(Bid.buyer)).filter(Auction.id == auction.id).one()
+    auction = (
+        db.query(Auction)
+        .options(joinedload(Auction.lot).joinedload(Lot.seller), joinedload(Auction.bids).joinedload(Bid.buyer))
+        .filter(Auction.id == auction.id)
+        .one()
+    )
     bids = sorted(auction.bids, key=lambda bid: (Decimal(str(bid.amount)), -bid.id), reverse=True)
     winner = highest_bid(db, auction.id) if auction.status == AuctionStatus.CLOSED else None
     minimum_bid = minimum_bid_for_auction(db, auction)
     can_bid = current_user.role in {UserRole.BUYER, UserRole.ADMIN} and current_user.id != auction.lot.seller_id and auction.status == AuctionStatus.ACTIVE
     can_manage = current_user.id == auction.lot.seller_id or current_user.role == UserRole.ADMIN
     return templates.TemplateResponse(
-        request=request, name="auction_detail.html",
-        context=template_context(request, current_user, auction=auction, bids=bids, winner=winner, minimum_bid=minimum_bid, can_bid=can_bid, can_manage=can_manage),
+        request=request,
+        name="auction_detail.html",
+        context=template_context(
+            request, current_user, auction=auction, bids=bids, winner=winner, minimum_bid=minimum_bid, can_bid=can_bid, can_manage=can_manage
+        ),
     )

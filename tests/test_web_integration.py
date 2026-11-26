@@ -1,4 +1,5 @@
 """End-to-end HTTP tests against isolated SQLAlchemy-backed test sessions."""
+
 from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
@@ -45,9 +46,7 @@ def test_login_by_username_or_email_and_dashboard(http_client, db, actors, ident
     assert page.status_code == 200
     token = http_client.cookies.get("csrf_token")
     assert token
-    login = http_client.post("/login", data={
-        "identity": identity, "password": "CorrectPassword123", "csrf_token": token, "next": "/dashboard"
-    })
+    login = http_client.post("/login", data={"identity": identity, "password": "CorrectPassword123", "csrf_token": token, "next": "/dashboard"})
     assert login.status_code == 303
     assert login.headers["location"] == "/dashboard"
     assert http_client.cookies.get("access_token")
@@ -61,9 +60,7 @@ def test_login_invalid_password_does_not_set_auth_cookie(http_client, db, actors
     buyer.hashed_password = hash_password("CorrectPassword123")
     db.commit()
     http_client.get("/login")
-    wrong = http_client.post("/login", data={
-        "identity": "buyer", "password": "wrong", "csrf_token": http_client.cookies.get("csrf_token")
-    })
+    wrong = http_client.post("/login", data={"identity": "buyer", "password": "wrong", "csrf_token": http_client.cookies.get("csrf_token")})
     assert wrong.status_code == 400
     assert not http_client.cookies.get("access_token")
 
@@ -71,10 +68,15 @@ def test_login_invalid_password_does_not_set_auth_cookie(http_client, db, actors
 def test_catalog_search_and_status_filter(http_client, db, actors):
     seller, buyer, _, _ = actors
     lot = create_lot(db, seller, LotCreate(title="Unique Antique Camera", start_price="100"))
-    create_auction(db, seller, AuctionCreate(
-        lot_id=lot.id, start_time=datetime.now() - timedelta(minutes=1),
-        end_time=datetime.now() + timedelta(hours=1),
-    ))
+    create_auction(
+        db,
+        seller,
+        AuctionCreate(
+            lot_id=lot.id,
+            start_time=datetime.now() - timedelta(minutes=1),
+            end_time=datetime.now() + timedelta(hours=1),
+        ),
+    )
     http_client.cookies.set("access_token", create_access_token(buyer))
     visible = http_client.get("/?q=Antique&status=active")
     assert visible.status_code == 200

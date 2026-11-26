@@ -1,4 +1,5 @@
 """Isolated test settings; never open the application's production database."""
+
 import os
 
 from dotenv import dotenv_values
@@ -8,9 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 # Preserve the actual application's URL only for safety comparison; never connect to it.
-os.environ["AUCTION_PROD_DATABASE_URL"] = (
-    os.environ.get("DATABASE_URL") or dotenv_values(".env").get("DATABASE_URL") or ""
-)
+os.environ["AUCTION_PROD_DATABASE_URL"] = os.environ.get("DATABASE_URL") or dotenv_values(".env").get("DATABASE_URL") or ""
 os.environ["APP_ENV"] = "test"
 os.environ["APP_SECRET_KEY"] = "test-only-very-long-unpredictable-key-not-a-production-secret"
 os.environ["DATABASE_URL"] = "mysql+pymysql://example:example@localhost/auction_never_use"

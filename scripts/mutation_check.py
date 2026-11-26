@@ -1,4 +1,5 @@
 """Real mutation smoke test: change the bid increment rule and demand pytest red."""
+
 import os
 from pathlib import Path
 import shutil
@@ -26,7 +27,11 @@ def main():
         env.pop("PYTHONPATH", None)
         process = subprocess.run(
             [sys.executable, "-m", "pytest", "tests/test_domain.py", "-q", "-o", "addopts="],
-            cwd=isolated, env=env, capture_output=True, text=True, check=False,
+            cwd=isolated,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         result = process.stdout + process.stderr
         if process.returncode == 0 or "FAILED tests/test_domain.py::test_bid_minimum" not in result:

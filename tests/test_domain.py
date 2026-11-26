@@ -6,12 +6,15 @@ import pytest
 from app.domain import DomainRuleError, minimum_allowed_bid, validate_bid_amount, validate_bid_window
 
 
-@pytest.mark.parametrize("start,increment,current,expected", [
-    ("10.00", "1.00", None, "10.00"),
-    ("10.00", "1.00", "10.00", "11.00"),
-    ("100.00", "0.01", "109.99", "110.00"),
-    ("10.00", "5.00", "99.00", "104.00"),
-])
+@pytest.mark.parametrize(
+    "start,increment,current,expected",
+    [
+        ("10.00", "1.00", None, "10.00"),
+        ("10.00", "1.00", "10.00", "11.00"),
+        ("100.00", "0.01", "109.99", "110.00"),
+        ("10.00", "5.00", "99.00", "104.00"),
+    ],
+)
 def test_bid_minimum(start, increment, current, expected):
     result = minimum_allowed_bid(Decimal(start), Decimal(increment), Decimal(current) if current is not None else None)
     assert result == Decimal(expected)

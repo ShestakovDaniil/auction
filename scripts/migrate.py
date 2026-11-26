@@ -1,4 +1,5 @@
 """Apply Alembic revisions; safely adopt the four-table legacy schema."""
+
 import os
 
 from alembic import command
@@ -47,9 +48,7 @@ def migrate_database(url: str) -> None:
                     raise RuntimeError(f"Таблица {table} не соответствует исходной схеме: {required - actual}")
             for table, required in LEGACY_FOREIGN_KEYS.items():
                 actual = {
-                    (fk["constrained_columns"][0], fk["referred_table"])
-                    for fk in inspector.get_foreign_keys(table)
-                    if len(fk["constrained_columns"]) == 1
+                    (fk["constrained_columns"][0], fk["referred_table"]) for fk in inspector.get_foreign_keys(table) if len(fk["constrained_columns"]) == 1
                 }
                 if not required <= actual:
                     raise RuntimeError(f"Таблица {table} имеет неправильные внешние ключи")

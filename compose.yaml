@@ -1,0 +1,80 @@
+# All credentials are read from .env.container at runtime, never from the image.
+name: auction-lab4
+
+x-app-environment: &app-environment
+  APP_NAME: Auction Lab
+  APP_ENV: development
+  APP_SECRET_KEY: ${APP_SECRET_KEY:?Set APP_SECRET_KEY in .env.container}
+  DATABASE_URL: mysql+pymysql://auction_app:${DB_PASSWORD:?Set DB_PASSWORD in .env.container}@db:3306/auction_lab?charset=utf8mb4
+  ALLOWED_HOSTS: 127.0.0.1,localhost,172.16.10.10
+  COOKIE_SECURE: "false"
+  AUTO_CREATE_TABLES: "false"
+
+services:
+  db:
+    image: mariadb:11.4.12
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: auction_lab
+      MARIADB_USER: auction_app
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.container}
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    cpus: 1.0
+    mem_limit: 1536m
+
+  migrate:
+    build: .
+    image: ${AUCTION_CHECK_IMAGE:-auction-lab:lab4}
+    command: ["python", "-m", "scripts.migrate"]
+    restart: "no"
+    environment: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    cpus: 0.5
+    mem_limit: 384m
+
+  app:
+    build: .
+    image: ${AUCTION_CHECK_IMAGE:-auction-lab:lab4}
+    restart: unless-stopped
+    environment: *app-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - backups:/opt/auction/backups
+    networks:
+      - backend
+    ports:
+      - "${APP_BIND_IP:-172.16.10.10}:${APP_HOST_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    stop_signal: SIGTERM
+    stop_grace_period: 20s
+    cpus: 1.0
+    mem_limit: 512m
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  db_data:
+  backups:
